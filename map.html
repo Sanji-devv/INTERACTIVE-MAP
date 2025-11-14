@@ -1,0 +1,139 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DND Interactive Map — Editor</title>
+
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="map.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;">DND MAP</h2>
+        <button id="themeToggle" style="background:#8b5cf6;padding:6px 12px;font-size:12px;">🌙 Night</button>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.1);">
+        <button class="tab-btn active" data-tab="editor">Editor</button>
+        <button class="tab-btn" data-tab="filters">Filters</button>
+        <button class="tab-btn" data-tab="players">Players</button>
+        <button class="tab-btn" data-tab="auth">Login</button>
+      </div>
+
+      <div id="editor-tab" class="tab-content active">
+        <div class="section">
+          <strong>Create Marker</strong>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+            <div>
+              <label style="font-size:12px;"> Type:
+                <select id="type">
+                  <option value="city">City</option>
+                  <option value="village">Village</option>
+                  <option value="dungeon">Dungeon</option>
+                  <option value="resource">Resource</option>
+                  <option value="player">Player</option>
+                </select>
+              </label>
+            </div>
+            <div>
+              <label style="font-size:12px;"> Name:
+                <input id="name" placeholder="Eldoria" />
+              </label>
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:12px;"> Description:
+                <input id="desc" placeholder="Short description" />
+              </label>
+            </div>
+            <div style="grid-column:1/-1;">
+              <label style="font-size:12px;"> Color:
+                <div id="colorSwatches" class="swatches"></div>
+              </label>
+            </div>
+          </div>
+          <button id="placeBtn" style="width:100%;margin-top:10px;background:#10b981;padding:10px;">Create Marker (click map)</button>
+        </div>
+
+        <div class="section small">
+          <div>Map size: <span id="mapSize">—</span></div>
+        </div>
+      </div>
+
+      <div id="filters-tab" class="tab-content">
+        <div class="section">
+          <strong>Marker Types</strong>
+          <div class="filter-buttons">
+            <button class="filter-btn active" data-type="city"><img src="assets/markers/city.png" alt="city" style="width:16px;height:16px;"/> City</button>
+            <button class="filter-btn active" data-type="village"><img src="assets/markers/village.png" alt="village" style="width:16px;height:16px;"/> Village</button>
+            <button class="filter-btn active" data-type="dungeon"><img src="assets/markers/dungeon.png" alt="dungeon" style="width:16px;height:16px;"/> Dungeon</button>
+            <button class="filter-btn active" data-type="resource"><img src="assets/markers/marker.png" alt="resource" style="width:16px;height:16px;"/> Resource</button>
+            <button class="filter-btn active" data-type="player"><img src="assets/markers/marker.png" alt="player" style="width:16px;height:16px;"/> Player</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <strong>Actions</strong>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button id="exportBtn" style="flex:1;background:#34d399;">Export JSON</button>
+            <button id="importBtn" style="flex:1;background:#8b5cf6;">Import JSON</button>
+          </div>
+          <input type="file" id="importFile" accept=".json" style="display:none;" />
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button id="clearBtn" style="flex:1;background:#ff4d4d;">Clear All</button>
+            <button id="disableAllBtn" style="flex:1;background:#fbbf24;">Disable All</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="players-tab" class="tab-content">
+        <div class="section">
+          <strong>Players</strong>
+          <div id="playersList" style="margin-top:10px;">
+            <p style="font-size:12px;color:rgba(255,255,255,0.6);text-align:center;">No players yet</p>
+          </div>
+          <input type="text" id="playerName" placeholder="Player name" style="margin-top:10px;" />
+          <button id="addPlayerBtn" style="width:100%;margin-top:6px;background:#10b981;">Add Player</button>
+        </div>
+      </div>
+
+      <div id="auth-tab" class="tab-content">
+        <div class="section">
+          <h3 style="margin-top:0;">Login</h3>
+          <label>Email:
+            <input type="email" id="loginEmail" placeholder="your@email.com" />
+          </label>
+          <label>Password:
+            <input type="password" id="loginPassword" placeholder="Password" />
+          </label>
+          <button id="loginBtn" style="width:100%;background:#60a5fa;">Login</button>
+        </div>
+
+        <div class="section">
+          <h3 style="margin-top:0;">Register</h3>
+          <label>Email:
+            <input type="email" id="regEmail" placeholder="your@email.com" />
+          </label>
+          <label>Password:
+            <input type="password" id="regPassword" placeholder="Password" />
+          </label>
+          <label>Confirm Password:
+            <input type="password" id="regConfirm" placeholder="Confirm password" />
+          </label>
+          <button id="registerBtn" style="width:100%;background:#10b981;">Register</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <main id="main">
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>
