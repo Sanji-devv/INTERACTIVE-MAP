@@ -20,7 +20,6 @@
         <button class="tab-btn active" data-tab="editor">Editor</button>
         <button class="tab-btn" data-tab="filters">Filters</button>
         <button class="tab-btn" data-tab="players">Players</button>
-        <button class="tab-btn" data-tab="auth">Login</button>
       </div>
 
       <div id="editor-tab" class="tab-content active">
@@ -99,40 +98,64 @@
         </div>
       </div>
 
-      <div id="auth-tab" class="tab-content">
-        <div class="section">
-          <h3 style="margin-top:0;">Login</h3>
-          <label>Email:
-            <input type="email" id="loginEmail" placeholder="your@email.com" />
-          </label>
-          <label>Password:
-            <input type="password" id="loginPassword" placeholder="Password" />
-          </label>
-          <button id="loginBtn" style="width:100%;background:#60a5fa;">Login</button>
-        </div>
-
-        <div class="section">
-          <h3 style="margin-top:0;">Register</h3>
-          <label>Email:
-            <input type="email" id="regEmail" placeholder="your@email.com" />
-          </label>
-          <label>Password:
-            <input type="password" id="regPassword" placeholder="Password" />
-          </label>
-          <label>Confirm Password:
-            <input type="password" id="regConfirm" placeholder="Confirm password" />
-          </label>
-          <button id="registerBtn" style="width:100%;background:#10b981;">Register</button>
-        </div>
-      </div>
-
     </aside>
 
     <main id="main">
       <div id="map"></div>
+      
+      <!-- Auth Panel (Bottom Right) -->
+      <div id="authPanel" class="auth-panel">
+        <div class="auth-panel-header">
+          <button id="toggleAuthPanel" style="background:#8b5cf6;padding:6px 10px;font-size:12px;width:100%;margin:0;">← Hide</button>
+        </div>
+        <div class="auth-panel-content">
+          <div id="authForm">
+            <div class="auth-tab-buttons">
+              <button class="auth-tab-btn active" data-auth-tab="login">Login</button>
+              <button class="auth-tab-btn" data-auth-tab="register">Register</button>
+            </div>
+
+            <div id="loginForm" class="auth-tab-content active">
+              <h3 style="margin-top:0;font-size:14px;">Login</h3>
+              <label style="font-size:12px;">Email:
+                <input type="email" id="loginEmail" placeholder="your@email.com" />
+              </label>
+              <label style="font-size:12px;">Password:
+                <input type="password" id="loginPassword" placeholder="Password" />
+              </label>
+              <button id="loginBtn" style="width:100%;background:#60a5fa;margin-top:8px;">Login</button>
+            </div>
+
+            <div id="registerForm" class="auth-tab-content">
+              <h3 style="margin-top:0;font-size:14px;">Register</h3>
+              <label style="font-size:12px;">Email:
+                <input type="email" id="regEmail" placeholder="your@email.com" />
+              </label>
+              <label style="font-size:12px;">Password:
+                <input type="password" id="regPassword" placeholder="Password" />
+              </label>
+              <label style="font-size:12px;">Confirm:
+                <input type="password" id="regConfirm" placeholder="Confirm password" />
+              </label>
+              <p style="font-size:11px;color:rgba(255,255,255,0.5);margin:8px 0;">All users register as USER type</p>
+              <button id="registerBtn" style="width:100%;background:#10b981;">Register</button>
+            </div>
+          </div>
+
+          <div id="userInfo" style="display:none;">
+            <div style="padding:12px;background:rgba(255,255,255,0.05);border-radius:6px;margin-bottom:10px;">
+              <p style="margin:0;font-size:12px;"><strong>Logged in as:</strong></p>
+              <p id="currentUser" style="margin:4px 0;font-size:13px;color:#60a5fa;"></p>
+              <p id="userType" style="margin:4px 0;font-size:11px;color:rgba(255,255,255,0.6);"></p>
+            </div>
+            <button id="logoutBtn" style="width:100%;background:#ff4d4d;">Logout</button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
+  <script src="database.js"></script>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="map.js"></script>
 </body>

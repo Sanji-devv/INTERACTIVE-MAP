@@ -10,10 +10,10 @@
     isDarkMode = !isDarkMode;
     if (isDarkMode) {
       document.documentElement.classList.remove('light-mode');
-      themeToggle.textContent = '🌙 Night';
+      themeToggle.textContent = '🌙';
     } else {
       document.documentElement.classList.add('light-mode');
-      themeToggle.textContent = '☀️ Day';
+      themeToggle.textContent = '☀️';
     }
   });
 
@@ -79,8 +79,24 @@
   let map, imgWidth, imgHeight, bounds;
   let selectedColor = '#f97316'; // default
 
-  // 18 fixed colors - diverse and distinguishable
-  const COLORS = ['#ffffff','#000000','#ff0000','#00ff00','#0000ff','#ffff00','#ff8800','#ff00ff','#00ffff','#c0c0c0','#800000','#008000','#000080','#808000','#800080','#008080','#ffa500','#a52a2a'];
+  // Helper function to generate random color
+  function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
+
+  // 18 colors - first 9 fixed, next 9 random
+  const COLORS = [
+    '#ffffff','#000000','#ff0000','#00ff00','#0000ff',
+    '#ffff00','#ff8800','#ff00ff','#00ffff',
+    getRandomColor(),getRandomColor(),getRandomColor(),
+    getRandomColor(),getRandomColor(),getRandomColor(),
+    getRandomColor(),getRandomColor(),getRandomColor()
+  ];
 
   // build swatches
   COLORS.forEach(c => {
@@ -175,18 +191,33 @@
   img.src = imagePath;
 
   function addItemFromFormAt(x,y){
-    const id = 'm' + Date.now() + Math.floor(Math.random()*999);
-    const it = {
-      id,
+    // Only logged-in users can create markers
+    if (!currentUser) {
+      alert('Please login first to create markers');
+      return;
+    }
+
+    const markerData = {
       name: inputName.value || 'Untitled',
-      desc: inputDesc.value || '',
+      description: inputDesc.value || '',
       type: selectType.value || 'city',
       color: selectedColor,
       x, y
     };
-    ITEMS.push(it);
-    addMarkerToMap(it);
-    applyFilters();
+
+    const result = addMarker(markerData, currentUser.id);
+    if (result.success) {
+      const item = result.marker;
+      ITEMS.push(item);
+      addMarkerToMap(item);
+      applyFilters();
+      // Clear form
+      inputName.value = '';
+      inputDesc.value = '';
+      selectType.value = 'city';
+    } else {
+      alert('Failed to create marker: ' + result.message);
+    }
   }
 
   function addMarkerToMap(item){
@@ -212,33 +243,15 @@
     placeBtn.style.background = placing ? '#22c55e' : '#10b981';
   });
 
-  saveBtn.addEventListener('click', () => {
-    if (editingItemId.id) {
-      const item = ITEMS.find(x => x.id === editingItemId.id);
-      if (item) {
-        item.name = inputName.value || 'Untitled';
-        item.desc = inputDesc.value || '';
-        item.type = selectType.value || 'city';
-        item.color = selectedColor;
-        const m = markers[editingItemId.id];
-        if (m) {
-          m.setIcon(createIconForItem(item));
-          m.setPopupContent(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}<br><small>${item.type}</small><br><small>(${item.x}, ${item.y})</small>`);
-        }
-        editingItemId.id = null;
-        saveBtn.textContent = 'Place on Map (click to place)';
-        saveBtn.style.background = 'var(--accent)';
-        inputName.value = '';
-        inputDesc.value = '';
-        applyFilters();
-      }
-    }
-  });
-
   exportBtn.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(ITEMS, null, 2)], {type:'application/json'});
+    // Export the entire database with timestamp
+    const exported = exportDatabase();
+    const blob = new Blob([JSON.stringify(exported, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'map-markers.json'; a.click();
+    const a = document.createElement('a'); 
+    a.href = url; 
+    a.download = 'data.json'; 
+    a.click();
     URL.revokeObjectURL(url);
   });
 
@@ -248,18 +261,33 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const arr = JSON.parse(reader.result);
+        const data = JSON.parse(reader.result);
+        // Import the database
+        importDatabase(data);
+        
+        // Clear the current markers from map
         for (let k in markers) { map.removeLayer(markers[k]); }
-        markers = {}; ITEMS = [];
-        arr.forEach(it => {
-          it.color = it.color || selectedColor;
+        markers = {}; 
+        ITEMS = [];
+        
+        // Reload markers from database
+        DATABASE.markers.forEach(markerData => {
+          const it = {
+            id: markerData.id,
+            name: markerData.name,
+            desc: markerData.description || '',
+            type: markerData.type,
+            color: markerData.color || selectedColor,
+            x: markerData.x,
+            y: markerData.y
+          };
           ITEMS.push(it);
         });
         ITEMS.forEach(it => addMarkerToMap(it));
         applyFilters();
-        alert('Import successful');
+        alert('Import successful - ' + ITEMS.length + ' markers loaded');
       } catch (e) {
-        alert('Import failed: JSON error');
+        alert('Import failed: ' + e.message);
       }
     };
     reader.readAsText(f);
@@ -267,31 +295,6 @@
 
   document.getElementById('importBtn').addEventListener('click', () => {
     document.getElementById('importFile').click();
-  });
-
-  document.getElementById('importPNGBtn').addEventListener('click', () => {
-    document.getElementById('importPNGFile').click();
-  });
-
-  document.getElementById('importPNGFile').addEventListener('change', (ev) => {
-    const f = ev.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const blob = new Blob([e.target.result], {type:'image/png'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = f.name;
-      a.click();
-      URL.revokeObjectURL(url);
-      alert('PNG downloaded successfully');
-    };
-    reader.readAsArrayBuffer(f);
-  });
-
-  document.getElementById('exportPNGBtn').addEventListener('click', () => {
-    alert('PNG export feature: Please use your browser\'s screenshot tools or export from the map view.');
   });
 
   disableAllBtn.addEventListener('click', () => {
@@ -332,29 +335,100 @@
     selectedColor = s.dataset.color;
   });
 
-  // Login/Register handlers
+  // Auth panel toggle
+  const authPanel = document.getElementById('authPanel');
+  const toggleAuthBtn = document.getElementById('toggleAuthPanel');
+  
+  toggleAuthBtn.addEventListener('click', () => {
+    authPanel.classList.toggle('collapsed');
+    toggleAuthBtn.textContent = authPanel.classList.contains('collapsed') ? '→ Show' : '← Hide';
+  });
+
+  // Auth panel tab switching
+  document.querySelectorAll('.auth-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.authTab;
+      document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.auth-tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`${tabName}Form`).classList.add('active');
+    });
+  });
+
+  // Global current user
+  let currentUser = null;
+
+  function showAuthForm() {
+    document.getElementById('authForm').style.display = 'block';
+    document.getElementById('userInfo').style.display = 'none';
+  }
+
+  function showUserInfo() {
+    document.getElementById('authForm').style.display = 'none';
+    document.getElementById('userInfo').style.display = 'block';
+    document.getElementById('currentUser').textContent = currentUser.email;
+    document.getElementById('userType').textContent = `Type: ${currentUser.type}`;
+  }
+
+  // Login handler
   document.getElementById('loginBtn').addEventListener('click', () => {
-    const email = document.getElementById('loginEmail').value;
+    const email = document.getElementById('loginEmail').value.trim();
     const pass = document.getElementById('loginPassword').value;
-    if (email && pass) {
-      alert('Login: ' + email);
+    
+    if (!email || !pass) {
+      alert('Please enter email and password');
+      return;
+    }
+
+    const result = loginUser(email, pass);
+    if (result.success) {
+      currentUser = result.user;
+      alert('Logged in as ' + email);
       document.getElementById('loginEmail').value = '';
       document.getElementById('loginPassword').value = '';
+      showUserInfo();
+    } else {
+      alert('Login failed: ' + result.message);
     }
   });
 
+  // Register handler
   document.getElementById('registerBtn').addEventListener('click', () => {
-    const email = document.getElementById('regEmail').value;
+    const email = document.getElementById('regEmail').value.trim();
     const pass = document.getElementById('regPassword').value;
     const confirm = document.getElementById('regConfirm').value;
-    if (email && pass && confirm && pass === confirm) {
-      alert('Registered: ' + email);
+
+    if (!email || !pass || !confirm) {
+      alert('Please fill all fields');
+      return;
+    }
+
+    if (pass !== confirm) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    const result = registerUser(email, pass);
+    if (result.success) {
+      alert('Registered successfully! You are now USER type. Please login.');
       document.getElementById('regEmail').value = '';
       document.getElementById('regPassword').value = '';
       document.getElementById('regConfirm').value = '';
-    } else if (pass !== confirm) {
-      alert('Passwords do not match');
+      // Switch to login tab
+      document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.auth-tab-content').forEach(c => c.classList.remove('active'));
+      document.querySelector('[data-auth-tab="login"]').classList.add('active');
+      document.getElementById('loginForm').classList.add('active');
+    } else {
+      alert('Registration failed: ' + result.message);
     }
+  });
+
+  // Logout handler
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    currentUser = null;
+    showAuthForm();
+    alert('Logged out');
   });
 
   function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
