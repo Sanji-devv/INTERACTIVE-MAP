@@ -199,10 +199,23 @@ function getCharacterPosition(characterId) {
 // Load persisted data on script load
 loadDatabase();
 
-// Expose to window for debugging
+// Expose to window for use in map.js (browser)
 window.DATABASE = DATABASE;
+window.addMarker = addMarker;
+window.updateMarker = updateMarker;
+window.deleteMarker = deleteMarker;
+window.getAllMarkers = getAllMarkers;
+window.getMarkerById = getMarkerById;
+window.updateCharacterPosition = updateCharacterPosition;
+window.removeCharacterPosition = removeCharacterPosition;
+window.getAllCharacterPositions = getAllCharacterPositions;
+window.getCharacterPosition = getCharacterPosition;
+window.saveDatabase = saveDatabase;
+window.loadDatabase = loadDatabase;
+window.exportDatabase = exportDatabase;
+window.importDatabase = importDatabase;
 
-// Export functions for use in map.js
+// Export functions for use in map.js (Node.js / Module systems)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     DATABASE,

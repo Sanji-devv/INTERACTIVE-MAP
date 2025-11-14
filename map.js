@@ -159,25 +159,34 @@
       }
     });
 
+    // Load markers from database
+    try {
+      const markers = getAllMarkers();
+      markers.forEach(it => {
+        if (typeof it.x === 'number' && typeof it.y === 'number') {
+          it.color = it.color || selectedColor;
+          ITEMS.push(it);
+        }
+      });
+      ITEMS.forEach(it => addMarkerToMap(it));
+      applyFilters();
+    } catch(e) {
+      console.warn('Failed to load markers:', e);
+    }
+
+    // Try to load backup from data.json
     fetch('data.json').then(r => {
       if (!r.ok) return null;
       return r.json();
     }).then(arr => {
       if (!arr) return;
       arr.forEach(it => {
-        if (typeof it.x === 'number' && typeof it.y === 'number') {
-          it.color = it.color || selectedColor;
-          ITEMS.push(it);
-        } else if (Array.isArray(it.coords) && it.coords.length===2) {
-          ITEMS.push({
-            id: it.id || ('m'+Date.now()+Math.random()),
-            name: it.name || 'Untitled',
-            desc: it.desc || '',
-            type: it.type || 'city',
-            color: it.color || selectedColor,
-            x: Math.round(it.coords[1]),
-            y: Math.round(it.coords[0])
-          });
+        // only add if not already loaded from database
+        if (!ITEMS.find(existing => existing.id === it.id)) {
+          if (typeof it.x === 'number' && typeof it.y === 'number') {
+            it.color = it.color || selectedColor;
+            ITEMS.push(it);
+          }
         }
       });
       ITEMS.forEach(it => addMarkerToMap(it));
@@ -205,7 +214,7 @@
       x, y
     };
 
-    const result = addMarker(markerData, currentUser.id);
+    const result = addMarker(markerData, currentUser.id, currentUser.email);
     if (result.success) {
       const item = result.marker;
       ITEMS.push(item);
@@ -244,15 +253,22 @@
   });
 
   exportBtn.addEventListener('click', () => {
-    // Export the entire database with timestamp
-    const exported = exportDatabase();
-    const blob = new Blob([JSON.stringify(exported, null, 2)], {type:'application/json'});
+    // Export both databases
+    const mapData = exportDatabase();
+    const userData = exportUserDatabase();
+    const combined = {
+      map: mapData,
+      user: userData,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(combined, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); 
     a.href = url; 
-    a.download = 'data.json'; 
+    a.download = `dnd-map-backup-${new Date().toISOString().split('T')[0]}.json`; 
     a.click();
     URL.revokeObjectURL(url);
+    alert('Database exported successfully');
   });
 
   importFile.addEventListener('change', (ev) => {
@@ -262,8 +278,17 @@
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        // Import the database
-        importDatabase(data);
+        
+        // Import map database
+        if (data.map || data.markers) {
+          const mapData = data.map || data;
+          importDatabase(mapData);
+        }
+        
+        // Import user database
+        if (data.user) {
+          importUserDatabase(data.user);
+        }
         
         // Clear the current markers from map
         for (let k in markers) { map.removeLayer(markers[k]); }
@@ -271,18 +296,24 @@
         ITEMS = [];
         
         // Reload markers from database
-        DATABASE.markers.forEach(markerData => {
-          const it = {
-            id: markerData.id,
-            name: markerData.name,
-            desc: markerData.description || '',
-            type: markerData.type,
-            color: markerData.color || selectedColor,
-            x: markerData.x,
-            y: markerData.y
-          };
-          ITEMS.push(it);
-        });
+        try {
+          const loadedMarkers = getAllMarkers();
+          loadedMarkers.forEach(markerData => {
+            const it = {
+              id: markerData.id,
+              name: markerData.name,
+              desc: markerData.description || '',
+              type: markerData.type,
+              color: markerData.color || selectedColor,
+              x: markerData.x,
+              y: markerData.y
+            };
+            ITEMS.push(it);
+          });
+        } catch(e) {
+          console.warn('Could not reload markers:', e);
+        }
+        
         ITEMS.forEach(it => addMarkerToMap(it));
         applyFilters();
         alert('Import successful - ' + ITEMS.length + ' markers loaded');
@@ -295,6 +326,22 @@
 
   document.getElementById('importBtn').addEventListener('click', () => {
     document.getElementById('importFile').click();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    if (!confirm('Clear all markers? This cannot be undone.')) return;
+    // Clear from database
+    ITEMS.forEach(it => {
+      if (currentUser) {
+        deleteMarker(it.id, currentUser.id);
+      }
+    });
+    // Clear from map
+    for (let k in markers) { map.removeLayer(markers[k]); }
+    markers = {};
+    ITEMS = [];
+    applyFilters();
+    alert('All markers cleared');
   });
 
   disableAllBtn.addEventListener('click', () => {
@@ -338,13 +385,12 @@
   // Auth panel toggle
   const authPanel = document.getElementById('authPanel');
   const toggleAuthBtn = document.getElementById('toggleAuthPanel');
-  
-  toggleAuthBtn.addEventListener('click', () => {
-    authPanel.classList.toggle('collapsed');
-    toggleAuthBtn.textContent = authPanel.classList.contains('collapsed') ? '→ Show' : '← Hide';
-  });
 
-  // Auth panel tab switching
+  toggleAuthBtn.addEventListener('click', () => {
+    const isHidden = authPanel.style.display === 'none';
+    authPanel.style.display = isHidden ? 'flex' : 'none';
+    toggleAuthBtn.textContent = isHidden ? '✕ Hide' : '✕ Hide';
+  });  // Auth panel tab switching
   document.querySelectorAll('.auth-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabName = btn.dataset.authTab;
@@ -357,6 +403,20 @@
 
   // Global current user
   let currentUser = null;
+  // character markers map
+  const characterMarkers = {};
+
+  // Profile / Character DOM
+  const regUsernameInput = document.getElementById('regUsername');
+  const profileUsernameInput = document.getElementById('profileUsername');
+  const profileNicknameInput = document.getElementById('profileNickname');
+  const updateProfileBtn = document.getElementById('updateProfileBtn');
+  const createCharBtn = document.getElementById('createCharBtn');
+  const charNameInput = document.getElementById('charName');
+  const charClassInput = document.getElementById('charClass');
+  const charXInput = document.getElementById('charX');
+  const charYInput = document.getElementById('charY');
+  const charactersListEl = document.getElementById('charactersList');
 
   function showAuthForm() {
     document.getElementById('authForm').style.display = 'block';
@@ -366,8 +426,10 @@
   function showUserInfo() {
     document.getElementById('authForm').style.display = 'none';
     document.getElementById('userInfo').style.display = 'block';
-    document.getElementById('currentUser').textContent = currentUser.email;
+    document.getElementById('currentUser').textContent = `${currentUser.username} (${currentUser.email})`;
     document.getElementById('userType').textContent = `Type: ${currentUser.type}`;
+    profileUsernameInput.value = currentUser.profile?.nickname || currentUser.username;
+    profileNicknameInput.value = currentUser.profile?.bio || '';
   }
 
   // Login handler
@@ -383,10 +445,11 @@
     const result = loginUser(email, pass);
     if (result.success) {
       currentUser = result.user;
-      alert('Logged in as ' + email);
+      console.log('Login successful:', currentUser);
       document.getElementById('loginEmail').value = '';
       document.getElementById('loginPassword').value = '';
       showUserInfo();
+      renderProfileAndCharacters();
     } else {
       alert('Login failed: ' + result.message);
     }
@@ -395,10 +458,11 @@
   // Register handler
   document.getElementById('registerBtn').addEventListener('click', () => {
     const email = document.getElementById('regEmail').value.trim();
+    const username = regUsernameInput.value.trim();
     const pass = document.getElementById('regPassword').value;
     const confirm = document.getElementById('regConfirm').value;
 
-    if (!email || !pass || !confirm) {
+    if (!email || !username || !pass || !confirm) {
       alert('Please fill all fields');
       return;
     }
@@ -408,17 +472,21 @@
       return;
     }
 
-    const result = registerUser(email, pass);
+    const result = registerUser(email, username, pass, confirm);
     if (result.success) {
-      alert('Registered successfully! You are now USER type. Please login.');
+      alert('Registered successfully! Now logging you in...');
       document.getElementById('regEmail').value = '';
+      regUsernameInput.value = '';
       document.getElementById('regPassword').value = '';
       document.getElementById('regConfirm').value = '';
-      // Switch to login tab
-      document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.auth-tab-content').forEach(c => c.classList.remove('active'));
-      document.querySelector('[data-auth-tab="login"]').classList.add('active');
-      document.getElementById('loginForm').classList.add('active');
+      
+      // Auto-login after registration
+      const loginResult = loginUser(email, pass);
+      if (loginResult.success) {
+        currentUser = loginResult.user;
+        showUserInfo();
+        renderProfileAndCharacters();
+      }
     } else {
       alert('Registration failed: ' + result.message);
     }
@@ -426,10 +494,143 @@
 
   // Logout handler
   document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (currentUser) {
+      logoutUser(currentUser.id);
+    }
     currentUser = null;
     showAuthForm();
     alert('Logged out');
+    // remove character markers from map
+    Object.values(characterMarkers).forEach(m => { if (map && map.hasLayer(m)) map.removeLayer(m); });
+    Object.keys(characterMarkers).forEach(k => delete characterMarkers[k]);
   });
+
+  // Update profile
+  updateProfileBtn.addEventListener('click', () => {
+    if (!currentUser) return alert('Not logged in');
+    const nickname = profileNicknameInput.value.trim();
+    const res = updateProfile(currentUser.id, { nickname, bio: nickname });
+    if (res.success) {
+      currentUser = res.user;
+      alert('Profile updated successfully');
+    } else alert('Profile update failed: ' + res.message);
+  });
+
+  // Create character
+  createCharBtn.addEventListener('click', () => {
+    if (!currentUser) return alert('Please login to create characters');
+    const name = charNameInput.value.trim();
+    const cls = charClassInput.value.trim();
+    const x = Number(charXInput.value) || 100;
+    const y = Number(charYInput.value) || 100;
+    
+    if (!name || !cls) {
+      return alert('Please enter character name and class');
+    }
+    
+    const res = createCharacter(currentUser.id, { name, className: cls, level: 1, x, y });
+    if (res.success) {
+      charNameInput.value = '';
+      charClassInput.value = '';
+      charXInput.value = '';
+      charYInput.value = '';
+      // Update character position cache in map database
+      updateCharacterPosition(res.character.id, x, y, name, currentUser.username);
+      renderCharacters();
+      addCharacterMarker(res.character);
+      alert('Character created successfully!');
+    } else alert('Create character failed: ' + res.message);
+  });
+
+  // Render profile fields and characters list
+  function renderProfileAndCharacters(){
+    if (!currentUser) return;
+    profileUsernameInput.value = currentUser.profile?.nickname || currentUser.username;
+    profileNicknameInput.value = currentUser.profile?.bio || '';
+    renderCharacters();
+  }
+
+  function renderCharacters(){
+    if (!currentUser) return;
+    const chars = getCharactersByUser(currentUser.id);
+    if (!chars || chars.length === 0) {
+      charactersListEl.innerHTML = '<p style="font-size:12px;color:rgba(255,255,255,0.6);">No characters yet</p>';
+      return;
+    }
+    charactersListEl.innerHTML = chars.map(c => `
+      <div style="padding:6px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px;">
+        <div><strong>${escapeHtml(c.name)}</strong> <small style="color:rgba(255,255,255,0.6);">${escapeHtml(c.className)} Lvl ${c.level}</small></div>
+        <div style="font-size:12px;margin-top:6px;">Pos: (${Math.round(c.x)}, ${Math.round(c.y)})</div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button onclick="window.teleportChar('${c.id}')" style="flex:1;background:#60a5fa;padding:6px 8px;font-size:12px;">Teleport</button>
+          <button onclick="window.deleteChar('${c.id}')" style="flex:1;background:#ef4444;padding:6px 8px;font-size:12px;">Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // window helpers for click handlers (global)
+  window.teleportChar = (charId) => {
+    if (!currentUser) return alert('Login first');
+    const x = prompt('Enter target X coordinate:');
+    const y = prompt('Enter target Y coordinate:');
+    if (x === null || y === null) return;
+    const tx = Number(x); 
+    const ty = Number(y);
+    if (isNaN(tx) || isNaN(ty)) return alert('Invalid coordinates');
+    const res = moveCharacter(charId, tx, ty, currentUser.id);
+    if (res.success) {
+      updateCharacterPosition(charId, tx, ty, res.character.name, currentUser.username);
+      renderCharacters();
+      // Update marker position on map
+      if (characterMarkers[charId]) {
+        map.removeLayer(characterMarkers[charId]);
+        delete characterMarkers[charId];
+      }
+      addCharacterMarker(res.character);
+    } else alert('Teleport failed: ' + res.message);
+  };
+
+  window.deleteChar = (charId) => {
+    if (!confirm('Delete this character?')) return;
+    const res = deleteCharacter(charId, currentUser.id);
+    if (res.success) {
+      removeCharacterPosition(charId);
+      if (characterMarkers[charId]) {
+        map.removeLayer(characterMarkers[charId]);
+        delete characterMarkers[charId];
+      }
+      renderCharacters();
+      alert('Character deleted');
+    } else alert('Delete failed: ' + res.message);
+  };
+
+  // Add or update marker for a character
+  function addCharacterMarker(ch){
+    if (!map) return; // map not ready yet
+    // remove old
+    if (characterMarkers[ch.id]) { if (map.hasLayer(characterMarkers[ch.id])) map.removeLayer(characterMarkers[ch.id]); }
+    const itemLike = { id: ch.id, name: ch.name, desc: ch.className, type: 'player', color: ch.color || '#ef4444', x: ch.x, y: ch.y };
+    const m = L.marker([ch.y, ch.x], { icon: createIconForItem(itemLike), draggable: (currentUser && (currentUser.id === ch.ownerId || currentUser.type === 'ADMIN')) });
+    m.bindPopup(`<b>${escapeHtml(ch.name)}</b><br>${escapeHtml(ch.className)} (Lvl ${ch.level})<br><small>(${Math.round(ch.x)}, ${Math.round(ch.y)})</small>`);
+    m.on('dragend', ev => {
+      const p = ev.target.getLatLng();
+      const tx = Math.round(p.lng), ty = Math.round(p.lat);
+      const actorId = currentUser ? currentUser.id : null;
+      const res = moveCharacter(ch.id, tx, ty, actorId);
+      if (res.success) {
+        updateCharacterPosition(res.character.id, tx, ty, res.character.name, currentUser?.username || 'Unknown');
+        addCharacterMarker(res.character);
+        renderCharacters();
+      } else {
+        alert('Not authorized to move this character');
+        // reset marker position
+        m.setLatLng([ch.y, ch.x]);
+      }
+    });
+    m.addTo(map);
+    characterMarkers[ch.id] = m;
+  }
 
   function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
