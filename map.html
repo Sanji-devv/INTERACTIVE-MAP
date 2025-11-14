@@ -78,6 +78,7 @@
         <button class="tab-btn active flex-1 px-3 py-2 text-xs font-medium border-b-2 border-[var(--accent-color)] text-[var(--accent-color)]" data-tab="editor">Editor</button>
         <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="filters">Filters</button>
         <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="players">Players</button>
+        <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="account">Account</button>
       </div>
 
       <!-- Tab Contents -->
@@ -117,6 +118,108 @@
 
           <div class="bg-black/20 p-4 rounded-lg">
             <p class="text-xs text-[var(--text-muted)]">Map size: <span id="mapSize" class="text-[var(--text-main)] font-mono">—</span></p>
+          </div>
+        </div>
+
+        <!-- Account Tab (moved from floating auth panel) -->
+        <div id="account-tab" class="tab-content space-y-4">
+          <div class="bg-black/20 p-4 rounded-lg">
+            <h3 class="font-semibold text-sm mb-3">Account</h3>
+            <div id="authForm">
+              <div class="flex gap-2 mb-4 border-b border-[var(--border-color)]">
+                <button class="auth-tab-btn active flex-1 py-2 text-xs font-medium border-b-2 border-[var(--accent-color)] text-[var(--accent-color)]" data-auth-tab="login">Login</button>
+                <button class="auth-tab-btn flex-1 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-auth-tab="register">Register</button>
+              </div>
+
+              <div id="loginForm" class="auth-tab-content active space-y-3">
+                <h4 class="font-semibold text-sm">Login</h4>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Email:</label>
+                  <input type="email" id="loginEmail" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="your@email.com" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Password:</label>
+                  <input type="password" id="loginPassword" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Password" />
+                </div>
+                <button id="loginBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition">Login</button>
+              </div>
+
+              <div id="registerForm" class="auth-tab-content space-y-3">
+                <h4 class="font-semibold text-sm">Register</h4>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Email:</label>
+                  <input type="email" id="regEmail" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="your@email.com" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Username:</label>
+                  <input type="text" id="regUsername" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="display name" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Password:</label>
+                  <input type="password" id="regPassword" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Password" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Confirm:</label>
+                  <input type="password" id="regConfirm" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Confirm password" />
+                </div>
+                <p class="text-xs text-[var(--text-muted)]">All users register as USER type</p>
+                <button id="registerBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition">Register</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="userInfo" style="display:none;" class="bg-black/30 p-3 rounded-lg space-y-3">
+            <div>
+              <p class="text-xs text-[var(--text-muted)] mb-2">Logged in as:</p>
+              <p id="currentUser" class="text-sm font-semibold text-[var(--accent-color)]">—</p>
+              <p id="userType" class="text-xs text-[var(--text-muted)] mt-1">Type: USER</p>
+            </div>
+
+            <div>
+              <h4 class="font-semibold text-sm mb-2">Profile</h4>
+              <div class="space-y-2">
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Display name:</label>
+                  <input type="text" id="profileUsername" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Display name" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Nickname:</label>
+                  <input type="text" id="profileNickname" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="In-game nickname" />
+                </div>
+                <button id="updateProfileBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition text-sm">Update Profile</button>
+              </div>
+            </div>
+
+            <div>
+              <h4 class="font-semibold text-sm mb-2">Characters</h4>
+              <div class="space-y-2 mb-3">
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Name:</label>
+                  <input type="text" id="charName" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Character name" />
+                </div>
+                <div>
+                  <label class="text-xs text-[var(--text-muted)] block mb-1">Class:</label>
+                  <input type="text" id="charClass" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Class (e.g. Fighter)" />
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="text-xs text-[var(--text-muted)] block mb-1">X:</label>
+                    <input type="number" id="charX" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="x" />
+                  </div>
+                  <div>
+                    <label class="text-xs text-[var(--text-muted)] block mb-1">Y:</label>
+                    <input type="number" id="charY" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="y" />
+                  </div>
+                </div>
+                <button id="createCharBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition text-sm">Create Character</button>
+              </div>
+              <div id="charactersList" class="space-y-2 max-h-48 overflow-y-auto"><p class="text-xs text-[var(--text-muted)] text-center py-3">No characters yet</p></div>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="openProfileBtn" style="display:none;" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">Open Profile</button>
+              <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-lg transition">Logout</button>
+            </div>
           </div>
         </div>
 
@@ -167,132 +270,7 @@
     </main>
   </div>
 
-  <!-- Auth Panel (Fixed Bottom Right, Outside App) -->
-  <div id="authPanel" class="fixed bottom-4 right-4 w-80 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-lg shadow-2xl z-50 flex flex-col max-h-[500px]">
-        <div class="border-b border-[var(--border-color)] p-4 flex-shrink-0 bg-gradient-to-r from-blue-900/40 to-blue-800/20">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold text-[var(--text-main)] flex items-center gap-2">
-              <span class="text-lg">🔐</span> Account
-            </h3>
-            <button id="toggleAuthPanel" class="px-3 py-1 text-xs font-medium bg-red-600 hover:bg-red-700 text-white rounded transition">
-              ✕ Hide
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-y-auto flex-1 p-4" id="authPanelContent">
-          <!-- Auth Form -->
-          <div id="authForm">
-            <div class="flex gap-2 mb-4 border-b border-[var(--border-color)]">
-              <button class="auth-tab-btn active flex-1 py-2 text-xs font-medium border-b-2 border-[var(--accent-color)] text-[var(--accent-color)]" data-auth-tab="login">Login</button>
-              <button class="auth-tab-btn flex-1 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-auth-tab="register">Register</button>
-            </div>
-
-            <!-- Login Form -->
-            <div id="loginForm" class="auth-tab-content active space-y-3">
-              <h3 class="font-semibold text-sm">Login</h3>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Email:</label>
-                <input type="email" id="loginEmail" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="your@email.com" />
-              </div>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Password:</label>
-                <input type="password" id="loginPassword" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Password" />
-              </div>
-              <button id="loginBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition">
-                Login
-              </button>
-            </div>
-
-            <!-- Register Form -->
-            <div id="registerForm" class="auth-tab-content space-y-3">
-              <h3 class="font-semibold text-sm">Register</h3>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Email:</label>
-                <input type="email" id="regEmail" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="your@email.com" />
-              </div>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Username:</label>
-                <input type="text" id="regUsername" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="display name" />
-              </div>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Password:</label>
-                <input type="password" id="regPassword" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Password" />
-              </div>
-              <div>
-                <label class="text-xs text-[var(--text-muted)] block mb-1">Confirm:</label>
-                <input type="password" id="regConfirm" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Confirm password" />
-              </div>
-              <p class="text-xs text-[var(--text-muted)]">All users register as USER type</p>
-              <button id="registerBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition">
-                Register
-              </button>
-            </div>
-          </div>
-
-          <!-- User Info (shown after login) -->
-          <div id="userInfo" style="display:none;" class="space-y-4">
-            <div class="bg-black/30 p-3 rounded-lg">
-              <p class="text-xs text-[var(--text-muted)] mb-2">Logged in as:</p>
-              <p id="currentUser" class="text-sm font-semibold text-[var(--accent-color)]">—</p>
-              <p id="userType" class="text-xs text-[var(--text-muted)] mt-1">Type: USER</p>
-            </div>
-
-            <!-- Profile Section -->
-            <div class="bg-black/30 p-3 rounded-lg">
-              <h4 class="font-semibold text-sm mb-3">Profile</h4>
-              <div class="space-y-2">
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Display name:</label>
-                  <input type="text" id="profileUsername" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Display name" />
-                </div>
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Nickname:</label>
-                  <input type="text" id="profileNickname" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="In-game nickname" />
-                </div>
-                <button id="updateProfileBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition text-sm">
-                  Update Profile
-                </button>
-              </div>
-            </div>
-
-            <!-- Characters Section -->
-            <div class="bg-black/30 p-3 rounded-lg">
-              <h4 class="font-semibold text-sm mb-3">Characters</h4>
-              <div class="space-y-2 mb-3">
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Name:</label>
-                  <input type="text" id="charName" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Character name" />
-                </div>
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Class:</label>
-                  <input type="text" id="charClass" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Class (e.g. Fighter)" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="text-xs text-[var(--text-muted)] block mb-1">X:</label>
-                    <input type="number" id="charX" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="x" />
-                  </div>
-                  <div>
-                    <label class="text-xs text-[var(--text-muted)] block mb-1">Y:</label>
-                    <input type="number" id="charY" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="y" />
-                  </div>
-                </div>
-                <button id="createCharBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition text-sm">
-                  Create Character
-                </button>
-              </div>
-              <div id="charactersList" class="space-y-2 max-h-48 overflow-y-auto">
-                <p class="text-xs text-[var(--text-muted)] text-center py-3">No characters yet</p>
-              </div>
-            </div>
-
-            <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-lg transition">
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+  
     </div>
 
   <script src="data/user_database.js"></script>

@@ -43,20 +43,65 @@
 
   const filters = Array.from(document.querySelectorAll('.filter-btn'));
 
+  // Open Profile button placed in the Account tab (hidden until login)
+  const openProfileBtn = document.getElementById('openProfileBtn');
+
+  // Fallback in-page user DB shim (only if real `user_database.js` isn't loaded)
+  if (typeof registerUser !== 'function') {
+    (function(){
+      const LS_KEY = 'dnd-user-db';
+      function load(){ try { return JSON.parse(localStorage.getItem(LS_KEY)) || {users:[]}; } catch(e){ return {users:[]}; } }
+      function save(db){ localStorage.setItem(LS_KEY, JSON.stringify(db)); }
+      function findByEmail(email){ const db=load(); return db.users.find(u=>u.email===email); }
+      function findById(id){ const db=load(); return db.users.find(u=>u.id===id); }
+
+      window.registerUser = function(email, username, password, confirm){
+        if (!email || !username || !password) return { success:false, message:'Missing fields' };
+        const db = load();
+        if (db.users.find(u=>u.email===email)) return { success:false, message:'Email already exists' };
+        const id = 'u'+Date.now();
+        const user = { id, email, username, password, type:'USER', profile: { nickname: username, bio:'' }, createdAt: Date.now() };
+        db.users.push(user); save(db);
+        return { success:true, user };
+      };
+
+      window.loginUser = function(email, password){
+        const u = findByEmail(email);
+        if (!u) return { success:false, message:'User not found' };
+        if (u.password !== password) return { success:false, message:'Invalid password' };
+        return { success:true, user: u };
+      };
+
+      window.logoutUser = function(userId){ return { success:true }; };
+
+      window.updateProfile = function(userId, updates){
+        const db = load(); const u = db.users.find(x=>x.id===userId); if(!u) return { success:false, message:'User not found' };
+        u.profile = Object.assign({}, u.profile||{}, updates);
+        save(db);
+        return { success:true, user: u };
+      };
+
+      window.exportUserDatabase = function(){ return load(); };
+      window.importUserDatabase = function(data){ if (!data) return; localStorage.setItem(LS_KEY, JSON.stringify(data)); };
+    })();
+  }
+
   // Players
   let players = [];
   const playerNameInput = document.getElementById('playerName');
   const addPlayerBtn = document.getElementById('addPlayerBtn');
   const playersList = document.getElementById('playersList');
 
-  addPlayerBtn.addEventListener('click', () => {
+  if (addPlayerBtn) {
+    addPlayerBtn.addEventListener('click', () => {
     const name = playerNameInput.value.trim();
     if (name) {
       players.push({ id: Date.now(), name });
       playerNameInput.value = '';
       renderPlayers();
     }
-  });
+    });
+  }
 
   function renderPlayers() {
     playersList.innerHTML = players.length ? players.map(p => 
@@ -246,13 +291,16 @@
     markers[item.id] = m;
   }
 
-  placeBtn.addEventListener('click', () => {
-    placing = !placing;
-    placeBtn.textContent = placing ? '✓ Click on map to place marker' : 'Create Marker (click map)';
-    placeBtn.style.background = placing ? '#22c55e' : '#10b981';
-  });
+  if (placeBtn) {
+    placeBtn.addEventListener('click', () => {
+      placing = !placing;
+      placeBtn.textContent = placing ? '✓ Click on map to place marker' : 'Create Marker (click map)';
+      placeBtn.style.background = placing ? '#22c55e' : '#10b981';
+    });
+  }
 
-  exportBtn.addEventListener('click', () => {
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
     // Export both databases
     const mapData = exportDatabase();
     const userData = exportUserDatabase();
@@ -269,80 +317,88 @@
     a.click();
     URL.revokeObjectURL(url);
     alert('Database exported successfully');
-  });
-
-  importFile.addEventListener('change', (ev) => {
-    const f = ev.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        
-        // Import map database
-        if (data.map || data.markers) {
-          const mapData = data.map || data;
-          importDatabase(mapData);
-        }
-        
-        // Import user database
-        if (data.user) {
-          importUserDatabase(data.user);
-        }
-        
-        // Clear the current markers from map
-        for (let k in markers) { map.removeLayer(markers[k]); }
-        markers = {}; 
-        ITEMS = [];
-        
-        // Reload markers from database
-        try {
-          const loadedMarkers = getAllMarkers();
-          loadedMarkers.forEach(markerData => {
-            const it = {
-              id: markerData.id,
-              name: markerData.name,
-              desc: markerData.description || '',
-              type: markerData.type,
-              color: markerData.color || selectedColor,
-              x: markerData.x,
-              y: markerData.y
-            };
-            ITEMS.push(it);
-          });
-        } catch(e) {
-          console.warn('Could not reload markers:', e);
-        }
-        
-        ITEMS.forEach(it => addMarkerToMap(it));
-        applyFilters();
-        alert('Import successful - ' + ITEMS.length + ' markers loaded');
-      } catch (e) {
-        alert('Import failed: ' + e.message);
-      }
-    };
-    reader.readAsText(f);
-  });
-
-  document.getElementById('importBtn').addEventListener('click', () => {
-    document.getElementById('importFile').click();
-  });
-
-  clearBtn.addEventListener('click', () => {
-    if (!confirm('Clear all markers? This cannot be undone.')) return;
-    // Clear from database
-    ITEMS.forEach(it => {
-      if (currentUser) {
-        deleteMarker(it.id, currentUser.id);
-      }
     });
-    // Clear from map
-    for (let k in markers) { map.removeLayer(markers[k]); }
-    markers = {};
-    ITEMS = [];
-    applyFilters();
-    alert('All markers cleared');
-  });
+  }
+
+  if (importFile) {
+    importFile.addEventListener('change', (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          
+          // Import map database
+          if (data.map || data.markers) {
+            const mapData = data.map || data;
+            importDatabase(mapData);
+          }
+          
+          // Import user database
+          if (data.user) {
+            importUserDatabase(data.user);
+          }
+          
+          // Clear the current markers from map
+          for (let k in markers) { if (map && map.removeLayer) map.removeLayer(markers[k]); }
+          markers = {}; 
+          ITEMS = [];
+          
+          // Reload markers from database
+          try {
+            const loadedMarkers = getAllMarkers();
+            loadedMarkers.forEach(markerData => {
+              const it = {
+                id: markerData.id,
+                name: markerData.name,
+                desc: markerData.description || '',
+                type: markerData.type,
+                color: markerData.color || selectedColor,
+                x: markerData.x,
+                y: markerData.y
+              };
+              ITEMS.push(it);
+            });
+          } catch(e) {
+            console.warn('Could not reload markers:', e);
+          }
+          
+          ITEMS.forEach(it => addMarkerToMap(it));
+          applyFilters();
+          alert('Import successful - ' + ITEMS.length + ' markers loaded');
+        } catch (e) {
+          alert('Import failed: ' + e.message);
+        }
+      };
+      reader.readAsText(f);
+    });
+  }
+
+  const importBtn = document.getElementById('importBtn');
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      if (importFile) importFile.click();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear all markers? This cannot be undone.')) return;
+      // Clear from database
+      ITEMS.forEach(it => {
+        if (currentUser && typeof deleteMarker === 'function') {
+          try { deleteMarker(it.id, currentUser.id); } catch(e){}
+        }
+      });
+      // Clear from map
+      for (let k in markers) { if (map && map.removeLayer) map.removeLayer(markers[k]); }
+      markers = {};
+      ITEMS = [];
+      applyFilters();
+      alert('All markers cleared');
+    });
+  }
 
   disableAllBtn.addEventListener('click', () => {
     filters.forEach(f => {
@@ -382,15 +438,7 @@
     selectedColor = s.dataset.color;
   });
 
-  // Auth panel toggle
-  const authPanel = document.getElementById('authPanel');
-  const toggleAuthBtn = document.getElementById('toggleAuthPanel');
-
-  toggleAuthBtn.addEventListener('click', () => {
-    const isHidden = authPanel.style.display === 'none';
-    authPanel.style.display = isHidden ? 'flex' : 'none';
-    toggleAuthBtn.textContent = isHidden ? '✕ Hide' : '✕ Hide';
-  });  // Auth panel tab switching
+  // Auth tab switching (buttons inside Account tab)
   document.querySelectorAll('.auth-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabName = btn.dataset.authTab;
@@ -432,115 +480,133 @@
     profileNicknameInput.value = currentUser.profile?.bio || '';
   }
 
-  // Login handler
-  document.getElementById('loginBtn').addEventListener('click', () => {
-    const email = document.getElementById('loginEmail').value.trim();
-    const pass = document.getElementById('loginPassword').value;
-    
-    if (!email || !pass) {
-      alert('Please enter email and password');
-      return;
-    }
-
-    const result = loginUser(email, pass);
-    if (result.success) {
-      currentUser = result.user;
-      console.log('Login successful:', currentUser);
-      document.getElementById('loginEmail').value = '';
-      document.getElementById('loginPassword').value = '';
-      showUserInfo();
-      renderProfileAndCharacters();
-    } else {
-      alert('Login failed: ' + result.message);
-    }
-  });
-
-  // Register handler
-  document.getElementById('registerBtn').addEventListener('click', () => {
-    const email = document.getElementById('regEmail').value.trim();
-    const username = regUsernameInput.value.trim();
-    const pass = document.getElementById('regPassword').value;
-    const confirm = document.getElementById('regConfirm').value;
-
-    if (!email || !username || !pass || !confirm) {
-      alert('Please fill all fields');
-      return;
-    }
-
-    if (pass !== confirm) {
-      alert('Passwords do not match');
-      return;
-    }
-
-    const result = registerUser(email, username, pass, confirm);
-    if (result.success) {
-      alert('Registered successfully! Now logging you in...');
-      document.getElementById('regEmail').value = '';
-      regUsernameInput.value = '';
-      document.getElementById('regPassword').value = '';
-      document.getElementById('regConfirm').value = '';
-      
-      // Auto-login after registration
-      const loginResult = loginUser(email, pass);
-      if (loginResult.success) {
-        currentUser = loginResult.user;
+  // Login handler (defensive)
+  (function(){
+    const loginBtn = document.getElementById('loginBtn');
+    if (!loginBtn) return;
+    loginBtn.addEventListener('click', () => {
+      const emailEl = document.getElementById('loginEmail');
+      const passEl = document.getElementById('loginPassword');
+      const email = emailEl ? emailEl.value.trim() : '';
+      const pass = passEl ? passEl.value : '';
+      if (!email || !pass) {
+        alert('Please enter email and password');
+        return;
+      }
+      const result = (typeof loginUser === 'function') ? loginUser(email, pass) : { success: false, message: 'loginUser not available' };
+      if (result.success) {
+        currentUser = result.user;
+        if (emailEl) emailEl.value = '';
+        if (passEl) passEl.value = '';
         showUserInfo();
         renderProfileAndCharacters();
+        if (openProfileBtn) {
+          openProfileBtn.style.display = 'block';
+          openProfileBtn.onclick = () => window.open('profile.html', '_blank');
+        }
+      } else {
+        alert('Login failed: ' + result.message);
       }
-    } else {
-      alert('Registration failed: ' + result.message);
-    }
-  });
+    });
+  })();
 
-  // Logout handler
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    if (currentUser) {
-      logoutUser(currentUser.id);
-    }
-    currentUser = null;
-    showAuthForm();
-    alert('Logged out');
-    // remove character markers from map
-    Object.values(characterMarkers).forEach(m => { if (map && map.hasLayer(m)) map.removeLayer(m); });
-    Object.keys(characterMarkers).forEach(k => delete characterMarkers[k]);
-  });
+  // Register handler (defensive)
+  (function(){
+    const registerBtn = document.getElementById('registerBtn');
+    if (!registerBtn) return;
+    registerBtn.addEventListener('click', () => {
+      const emailEl = document.getElementById('regEmail');
+      const passEl = document.getElementById('regPassword');
+      const confirmEl = document.getElementById('regConfirm');
+      const usernameEl = regUsernameInput;
+      const username = usernameEl ? usernameEl.value.trim() : '';
+      const email = emailEl ? emailEl.value.trim() : '';
+      const pass = passEl ? passEl.value : '';
+      const confirm = confirmEl ? confirmEl.value : '';
+      if (!email || !username || !pass || !confirm) {
+        alert('Please fill all fields');
+        return;
+      }
+      if (pass !== confirm) {
+        alert('Passwords do not match');
+        return;
+      }
+      const result = (typeof registerUser === 'function') ? registerUser(email, username, pass, confirm) : { success: false, message: 'registerUser not available' };
+      if (result.success) {
+        if (emailEl) emailEl.value = '';
+        if (usernameEl) usernameEl.value = '';
+        if (passEl) passEl.value = '';
+        if (confirmEl) confirmEl.value = '';
+        const loginResult = (typeof loginUser === 'function') ? loginUser(email, pass) : { success: false };
+        if (loginResult.success) {
+          currentUser = loginResult.user;
+          showUserInfo();
+          renderProfileAndCharacters();
+          if (openProfileBtn) {
+            openProfileBtn.style.display = 'block';
+            openProfileBtn.onclick = () => window.open('profile.html', '_blank');
+          }
+        }
+      } else {
+        alert('Registration failed: ' + result.message);
+      }
+    });
+  })();
 
-  // Update profile
-  updateProfileBtn.addEventListener('click', () => {
-    if (!currentUser) return alert('Not logged in');
-    const nickname = profileNicknameInput.value.trim();
-    const res = updateProfile(currentUser.id, { nickname, bio: nickname });
-    if (res.success) {
-      currentUser = res.user;
-      alert('Profile updated successfully');
-    } else alert('Profile update failed: ' + res.message);
-  });
+  // Logout handler (defensive)
+  (function(){
+    const logoutBtnEl = document.getElementById('logoutBtn');
+    if (!logoutBtnEl) return;
+    logoutBtnEl.addEventListener('click', () => {
+      if (currentUser && typeof logoutUser === 'function') {
+        try { logoutUser(currentUser.id); } catch(e){}
+      }
+      currentUser = null;
+      showAuthForm();
+      alert('Logged out');
+      if (openProfileBtn) openProfileBtn.style.display = 'none';
+      Object.values(characterMarkers).forEach(m => { if (map && map.hasLayer && map.hasLayer(m)) map.removeLayer(m); });
+      Object.keys(characterMarkers).forEach(k => delete characterMarkers[k]);
+    });
+  })();
 
-  // Create character
-  createCharBtn.addEventListener('click', () => {
-    if (!currentUser) return alert('Please login to create characters');
-    const name = charNameInput.value.trim();
-    const cls = charClassInput.value.trim();
-    const x = Number(charXInput.value) || 100;
-    const y = Number(charYInput.value) || 100;
-    
-    if (!name || !cls) {
-      return alert('Please enter character name and class');
-    }
-    
-    const res = createCharacter(currentUser.id, { name, className: cls, level: 1, x, y });
-    if (res.success) {
-      charNameInput.value = '';
-      charClassInput.value = '';
-      charXInput.value = '';
-      charYInput.value = '';
-      // Update character position cache in map database
-      updateCharacterPosition(res.character.id, x, y, name, currentUser.username);
-      renderCharacters();
-      addCharacterMarker(res.character);
-      alert('Character created successfully!');
-    } else alert('Create character failed: ' + res.message);
-  });
+  // Update profile (defensive)
+  (function(){
+    if (!updateProfileBtn) return;
+    updateProfileBtn.addEventListener('click', () => {
+      if (!currentUser) return alert('Not logged in');
+      const nickname = profileNicknameInput ? profileNicknameInput.value.trim() : '';
+      const res = (typeof updateProfile === 'function') ? updateProfile(currentUser.id, { nickname, bio: nickname }) : { success: false, message: 'updateProfile not available' };
+      if (res.success) {
+        currentUser = res.user;
+        alert('Profile updated successfully');
+      } else alert('Profile update failed: ' + res.message);
+    });
+  })();
+
+  // Create character (defensive)
+  (function(){
+    if (!createCharBtn) return;
+    createCharBtn.addEventListener('click', () => {
+      if (!currentUser) return alert('Please login to create characters');
+      const name = charNameInput ? charNameInput.value.trim() : '';
+      const cls = charClassInput ? charClassInput.value.trim() : '';
+      const x = charXInput ? Number(charXInput.value) || 100 : 100;
+      const y = charYInput ? Number(charYInput.value) || 100 : 100;
+      if (!name || !cls) return alert('Please enter character name and class');
+      const res = (typeof createCharacter === 'function') ? createCharacter(currentUser.id, { name, className: cls, level: 1, x, y }) : { success: false, message: 'createCharacter not available' };
+      if (res.success) {
+        if (charNameInput) charNameInput.value = '';
+        if (charClassInput) charClassInput.value = '';
+        if (charXInput) charXInput.value = '';
+        if (charYInput) charYInput.value = '';
+        if (typeof updateCharacterPosition === 'function') updateCharacterPosition(res.character.id, x, y, name, currentUser.username);
+        renderCharacters();
+        addCharacterMarker(res.character);
+        alert('Character created successfully!');
+      } else alert('Create character failed: ' + res.message);
+    });
+  })();
 
   // Render profile fields and characters list
   function renderProfileAndCharacters(){

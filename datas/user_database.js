@@ -1,15 +1,3 @@
-/**
- * USER DATABASE - Frontend JSON Database
- * Manages users, profiles, characters, and authentication
- * Persists to localStorage with key: 'dnd-map-user-database'
- * 
- * IMPORTANT: For production:
- * - Use a proper backend (Node.js, Python, etc.)
- * - Hash passwords with bcrypt or similar
- * - Implement JWT or session-based authentication
- * - Add rate limiting and security measures
- */
-
 const USER_DATABASE = {
   users: [],
   characters: [],
@@ -17,10 +5,8 @@ const USER_DATABASE = {
   version: 1
 };
 
-// In-memory session tracking
 const ACTIVE_SESSIONS = {};
 
-// ============ HELPERS ============
 function _now() {
   return new Date().toISOString();
 }
@@ -42,7 +28,6 @@ function _validateUsername(username) {
   return username && username.length >= 3 && /^[a-zA-Z0-9_-]+$/.test(username);
 }
 
-// ============ PERSISTENCE ============
 function saveUserDatabase() {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -91,7 +76,6 @@ function importUserDatabase(data) {
 
 // ============ USER MANAGEMENT ============
 function registerUser(email, username, password, passwordConfirm) {
-  // Validation
   if (!email || !username || !password || !passwordConfirm) {
     return { success: false, message: 'All fields are required' };
   }
@@ -112,7 +96,6 @@ function registerUser(email, username, password, passwordConfirm) {
     return { success: false, message: 'Passwords do not match' };
   }
 
-  // Check uniqueness
   if (USER_DATABASE.users.find(u => u.email === email)) {
     return { success: false, message: 'Email already registered' };
   }
@@ -126,8 +109,8 @@ function registerUser(email, username, password, passwordConfirm) {
     id: _genId('user'),
     email,
     username,
-    password, // TODO: Hash with bcrypt in production!
-    type: 'USER', // USER or ADMIN
+    password,
+    type: 'USER',
     profile: {
       nickname: username,
       bio: '',
@@ -149,7 +132,6 @@ function registerUser(email, username, password, passwordConfirm) {
 
   saveUserDatabase();
 
-  // Return user without password
   return {
     success: true,
     message: 'User registered successfully',
@@ -164,23 +146,19 @@ function registerUser(email, username, password, passwordConfirm) {
 }
 
 function loginUser(email, password) {
-  // Validation
   if (!email || !password) {
     return { success: false, message: 'Email and password required' };
   }
 
-  // Find user
   const user = USER_DATABASE.users.find(u => u.email === email);
   if (!user) {
     return { success: false, message: 'Invalid email or password' };
   }
 
-  // Check password (in production, use bcrypt comparison)
   if (user.password !== password) {
     return { success: false, message: 'Invalid email or password' };
   }
 
-  // Create session
   const sessionId = _genId('session');
   ACTIVE_SESSIONS[sessionId] = {
     userId: user.id,
@@ -197,7 +175,6 @@ function loginUser(email, password) {
     timestamp: _now()
   });
 
-  // Return user without password
   return {
     success: true,
     message: 'Logged in successfully',
@@ -213,7 +190,6 @@ function loginUser(email, password) {
 }
 
 function logoutUser(userId) {
-  // Clear sessions for this user
   Object.keys(ACTIVE_SESSIONS).forEach(key => {
     if (ACTIVE_SESSIONS[key].userId === userId) {
       delete ACTIVE_SESSIONS[key];
@@ -235,7 +211,6 @@ function updateProfile(userId, profileUpdates) {
     return { success: false, message: 'User not found' };
   }
 
-  // Update only allowed fields
   if (profileUpdates.nickname !== undefined) user.profile.nickname = profileUpdates.nickname;
   if (profileUpdates.bio !== undefined) user.profile.bio = profileUpdates.bio;
   if (profileUpdates.avatar !== undefined) user.profile.avatar = profileUpdates.avatar;
@@ -314,7 +289,7 @@ function createCharacter(userId, characterData) {
     level: characterData.level || 1,
     x: typeof characterData.x === 'number' ? characterData.x : 0,
     y: typeof characterData.y === 'number' ? characterData.y : 0,
-    status: 'active', // active, inactive, deleted
+    status: 'active',
     color: characterData.color || '#ef4444',
     createdAt: _now(),
     updatedAt: _now()
@@ -354,7 +329,6 @@ function updateCharacter(characterId, updates, userId) {
     return { success: false, message: 'Character not found' };
   }
 
-  // Only owner or admin can update
   const user = USER_DATABASE.users.find(u => u.id === userId);
   if (!user) {
     return { success: false, message: 'User not found' };
@@ -364,7 +338,6 @@ function updateCharacter(characterId, updates, userId) {
     return { success: false, message: 'Not authorized to update this character' };
   }
 
-  // Update allowed fields
   if (updates.name !== undefined) character.name = updates.name.trim();
   if (updates.className !== undefined) character.className = updates.className.trim();
   if (updates.level !== undefined) character.level = Math.max(1, parseInt(updates.level) || 1);
@@ -573,11 +546,8 @@ function getUserAuditLog(filters = {}) {
   return logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
-// ============ INITIALIZATION ============
-// Load persisted data on script load
 loadUserDatabase();
 
-// Expose to window for use in map.js (browser)
 window.USER_DATABASE = USER_DATABASE;
 window.ACTIVE_SESSIONS = ACTIVE_SESSIONS;
 window.registerUser = registerUser;
@@ -602,7 +572,6 @@ window.loadUserDatabase = loadUserDatabase;
 window.exportUserDatabase = exportUserDatabase;
 window.importUserDatabase = importUserDatabase;
 
-// Export functions for use in map.js (Node.js / Module systems)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     USER_DATABASE,

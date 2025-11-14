@@ -1,9 +1,3 @@
-/**
- * CHARACTER DATABASE - Frontend JSON Database
- * Stores characters separately from `user_database.js`.
- * Persists to localStorage with key: 'dnd-character-database'
- */
-
 const CHARACTER_DB = {
   characters: [],
   version: 1
@@ -52,7 +46,6 @@ function importCharacterDatabase(data) {
 }
 
 function createCharacter(userId, characterData) {
-  // minimal validation
   if (!userId) return { success: false, message: 'No userId' };
   if (!characterData || !characterData.name || !characterData.className) return { success: false, message: 'Missing fields' };
 
@@ -117,10 +110,8 @@ function deleteCharacter(characterId, userId) {
   return { success: true };
 }
 
-// initialization
 loadCharacterDatabase();
 
-// expose
 window.CHARACTER_DB = CHARACTER_DB;
 window.createCharacter = createCharacter;
 window.getCharactersByUser = getCharactersByUser;

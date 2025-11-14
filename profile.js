@@ -1,15 +1,6 @@
-
-/* Profile page script
-	 - Provides character creation/listing
-	 - Sets an "active" character per-user (stored in localStorage)
-	 - Prevents logout unless an active character is selected
-	 - Saves profile data on demand and on unload
-*/
-
 (function () {
 	const LS_ACTIVE_KEY = (userId) => `dnd_activeCharacter_${userId}`;
 
-	// Helpers to safely call database functions exposed on window
 	function safe(fnName, ...args) {
 		try {
 			if (window && typeof window[fnName] === 'function') {
@@ -21,7 +12,6 @@
 		return null;
 	}
 
-	// DOM elements
 	const els = {
 		avatar: document.getElementById('avatar'),
 		displayName: document.getElementById('displayName'),
@@ -46,11 +36,9 @@
 	let currentUser = null;
 
 	function findOrCreateDemoUser() {
-		// If USER_DATABASE exists, attempt to use first user or create a demo user
 		if (!window.USER_DATABASE) return null;
 		let user = USER_DATABASE.users && USER_DATABASE.users[0];
 		if (!user) {
-			// Register a demo user
 			const email = 'demo@example.com';
 			const username = 'demo_user';
 			const pass = 'demo123';
@@ -61,12 +49,10 @@
 		}
 
 		if (user) {
-			// Try to log in (login only if loginUser available)
 			const logged = safe('loginUser', user.email, user.password || 'demo123');
 			if (logged && logged.user) {
 				currentUser = logged.user;
 			} else {
-				// fallback: use stored user object without session
 				currentUser = user;
 			}
 		}
@@ -81,7 +67,6 @@
 	function setActiveCharacterId(charId) {
 		if (!currentUser) return;
 		localStorage.setItem(LS_ACTIVE_KEY(currentUser.id), charId);
-		// best-effort save to persistent db if updateProfile supports extra field
 		if (typeof window.updateProfile === 'function') {
 			try {
 				updateProfile(currentUser.id, { activeCharacterId: charId });
@@ -96,7 +81,6 @@
 		els.displaySubtitle.textContent = currentUser.type || 'Player';
 		els.nickname.value = currentUser.profile && currentUser.profile.nickname ? currentUser.profile.nickname : currentUser.username;
 		els.email.value = currentUser.email || '';
-		// avatar if provided
 		const avatarUrl = currentUser.profile && currentUser.profile.avatar;
 		if (avatarUrl) els.avatar.style.backgroundImage = `url('${avatarUrl}')`;
 	}
@@ -146,14 +130,12 @@
 				actions.appendChild(setBtn);
 			}
 
-			// edit (not fully implemented) and delete
 			const delBtn = document.createElement('button');
 			delBtn.className = 'danger-btn';
 			delBtn.textContent = 'Delete';
 			delBtn.addEventListener('click', () => {
 				if (!confirm('Delete this character?')) return;
 				safe('deleteCharacter', c.id, currentUser.id);
-				// if deleted one was active, clear active
 				if (getActiveCharacterId() === c.id) {
 					localStorage.removeItem(LS_ACTIVE_KEY(currentUser.id));
 				}
@@ -172,7 +154,6 @@
 		return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 	}
 
-	// UI wiring
 	function bind() {
 		els.togglePassword.addEventListener('click', () => {
 			if (els.password.type === 'password') {
@@ -202,21 +183,17 @@
 		els.submitCreateChar.addEventListener('click', createCharacterFromForm);
 
 		els.logoutBtn.addEventListener('click', () => {
-			// Force active character selection
 			const active = getActiveCharacterId();
 			if (!active) {
 				alert('Please select an active character before logging out.');
-				// scroll to characters list and highlight
 				els.charactersList.scrollIntoView({ behavior: 'smooth' });
 				return;
 			}
-			// Save profile and logout
 			try { safe('saveUserDatabase'); } catch (e) { /* ok */ }
 			safe('logoutUser', currentUser.id);
 			alert('Logged out (session cleared).');
 		});
 
-		// Save profile on unload as well
 		window.addEventListener('beforeunload', () => {
 			if (!currentUser) return;
 			try { safe('updateProfile', currentUser.id, { nickname: els.nickname.value }); } catch (e) {}
@@ -245,11 +222,9 @@
 		const result = safe('createCharacter', currentUser.id, { name, className, level, color });
 		if (result && result.success) {
 			showCreateModal(false);
-			// clear form
 			els.newCharName.value = '';
 			els.newCharClass.value = '';
 			els.newCharLevel.value = '1';
-			// auto-select new character as active
 			setTimeout(() => {
 				setActiveCharacterId(result.character.id);
 			}, 50);
@@ -259,11 +234,9 @@
 		}
 	}
 
-	// Init
 	function init() {
 		currentUser = findOrCreateDemoUser();
 		if (!currentUser) {
-			// no DB available; create a temporary client-only user
 			currentUser = { id: 'guest-1', username: 'guest', profile: { nickname: 'Guest' } };
 		}
 		renderProfile();
@@ -271,7 +244,6 @@
 		bind();
 	}
 
-	// Kick off
 	document.addEventListener('DOMContentLoaded', init);
 
 })();
