@@ -7,6 +7,8 @@ body {
 
 .avatar {
 	background-image: url('https://images.unsplash.com/photo-1502685104226-ee32379fefbe?auto=format&fit=crop&w=256&q=60');
+	background-size: cover;
+	background-position: center;
 }
 
 #createCharacterModal[aria-open="true"] {
@@ -21,6 +23,11 @@ body {
 	border-radius: 0.5rem;
 	background: rgba(255,255,255,0.04);
 	border: 1px solid rgba(255,255,255,0.06);
+	transition: background 0.2s ease;
+}
+
+.char-card:hover {
+	background: rgba(255,255,255,0.08);
 }
 
 .char-meta {
@@ -34,6 +41,16 @@ body {
 	height: 28px;
 	border-radius: 6px;
 	border: 1px solid rgba(0,0,0,0.12);
+}
+
+.char-image {
+	width: 48px;
+	height: 48px;
+	border-radius: 8px;
+	background-size: cover;
+	background-position: center;
+	border: 1px solid rgba(255,255,255,0.1);
+	margin-left: 0.5rem;
 }
 
 .active-badge {
@@ -50,6 +67,14 @@ body {
 	color: #d1d5db;
 	padding: 0.5rem 0.75rem;
 	border-radius: 0.375rem;
+	border: 1px solid rgba(255,255,255,0.1);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.muted-btn:hover {
+	background: rgba(255,255,255,0.08);
+	color: #f3f4f6;
 }
 
 .danger-btn {
@@ -57,4 +82,12 @@ body {
 	color: #fca5a5;
 	padding: 0.5rem 0.75rem;
 	border-radius: 0.375rem;
+	border: 1px solid rgba(239,68,68,0.3);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.danger-btn:hover {
+	background: rgba(239,68,68,0.2);
+	color: #fecaca;
 }

@@ -1,0 +1,24 @@
+{
+  "name": "interactive-map",
+  "version": "1.0.0",
+  "description": "INTERACTIVE MAP FOR CUSTOM DND WORLDS",
+  "main": "map.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sanji-devv/INTERACTIVE-MAP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Sanji-devv/INTERACTIVE-MAP/issues"
+  },
+  "homepage": "https://github.com/Sanji-devv/INTERACTIVE-MAP#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

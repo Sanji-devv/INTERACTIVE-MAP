@@ -77,7 +77,6 @@
       <div class="flex gap-1 border-b border-[var(--border-color)] mb-4">
         <button class="tab-btn active flex-1 px-3 py-2 text-xs font-medium border-b-2 border-[var(--accent-color)] text-[var(--accent-color)]" data-tab="editor">Editor</button>
         <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="filters">Filters</button>
-        <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="players">Players</button>
         <button class="tab-btn flex-1 px-3 py-2 text-xs font-medium border-b-2 border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]" data-tab="account">Account</button>
       </div>
 
@@ -175,49 +174,8 @@
               <p id="userType" class="text-xs text-[var(--text-muted)] mt-1">Type: USER</p>
             </div>
 
-            <div>
-              <h4 class="font-semibold text-sm mb-2">Profile</h4>
-              <div class="space-y-2">
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Display name:</label>
-                  <input type="text" id="profileUsername" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Display name" />
-                </div>
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Nickname:</label>
-                  <input type="text" id="profileNickname" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="In-game nickname" />
-                </div>
-                <button id="updateProfileBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition text-sm">Update Profile</button>
-              </div>
-            </div>
-
-            <div>
-              <h4 class="font-semibold text-sm mb-2">Characters</h4>
-              <div class="space-y-2 mb-3">
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Name:</label>
-                  <input type="text" id="charName" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Character name" />
-                </div>
-                <div>
-                  <label class="text-xs text-[var(--text-muted)] block mb-1">Class:</label>
-                  <input type="text" id="charClass" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Class (e.g. Fighter)" />
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <div>
-                    <label class="text-xs text-[var(--text-muted)] block mb-1">X:</label>
-                    <input type="number" id="charX" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="x" />
-                  </div>
-                  <div>
-                    <label class="text-xs text-[var(--text-muted)] block mb-1">Y:</label>
-                    <input type="number" id="charY" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="y" />
-                  </div>
-                </div>
-                <button id="createCharBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition text-sm">Create Character</button>
-              </div>
-              <div id="charactersList" class="space-y-2 max-h-48 overflow-y-auto"><p class="text-xs text-[var(--text-muted)] text-center py-3">No characters yet</p></div>
-            </div>
-
-            <div class="flex gap-2">
-              <button id="openProfileBtn" style="display:none;" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">Open Profile</button>
+            <div class="flex gap-2 pt-4">
+              <button id="openProfileBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">Open Profile</button>
               <button id="logoutBtn" class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-lg transition">Logout</button>
             </div>
           </div>
@@ -248,19 +206,7 @@
           </div>
         </div>
 
-        <!-- Players Tab -->
-        <div id="players-tab" class="tab-content">
-          <div class="bg-black/20 p-4 rounded-lg">
-            <h3 class="font-semibold text-sm mb-3">Players</h3>
-            <div id="playersList" class="space-y-2 mb-4">
-              <p class="text-xs text-[var(--text-muted)] text-center py-4">No players yet</p>
-            </div>
-            <input type="text" id="playerName" class="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded px-3 py-2 text-sm mb-2 focus:ring-2 focus:ring-[var(--accent-color)] focus:outline-none" placeholder="Player name" />
-            <button id="addPlayerBtn" class="w-full bg-[var(--accent-color)] hover:bg-[var(--accent-hover)] text-white font-medium py-2 rounded-lg transition">
-              Add Player
-            </button>
-          </div>
-        </div>
+
       </div>
     </aside>
 

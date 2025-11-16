@@ -1,0 +1,11 @@
+# Dependencies and build outputs
+/node_modules
+/package-lock.json
+
+# IDE configuration files
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db

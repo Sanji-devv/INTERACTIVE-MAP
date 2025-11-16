@@ -86,37 +86,6 @@
     })();
   }
 
-  // Players
-  let players = [];
-  const playerNameInput = document.getElementById('playerName');
-  const addPlayerBtn = document.getElementById('addPlayerBtn');
-  const playersList = document.getElementById('playersList');
-
-  if (addPlayerBtn) {
-    addPlayerBtn.addEventListener('click', () => {
-    const name = playerNameInput.value.trim();
-    if (name) {
-      players.push({ id: Date.now(), name });
-      playerNameInput.value = '';
-      renderPlayers();
-    }
-    });
-  }
-
-  function renderPlayers() {
-    playersList.innerHTML = players.length ? players.map(p => 
-      `<div style="padding:8px;background:rgba(255,255,255,0.05);border-radius:4px;display:flex;justify-content:space-between;align-items:center;">
-        <span>${p.name}</span>
-        <button style="background:#ff4d4d;padding:4px 8px;font-size:11px;" onclick="window.removePlayer(${p.id})">Remove</button>
-      </div>`
-    ).join('') : '<p style="font-size:12px;color:rgba(255,255,255,0.6);text-align:center;">No players yet</p>';
-  }
-
-  window.removePlayer = (id) => {
-    players = players.filter(p => p.id !== id);
-    renderPlayers();
-  };
-
   // state
   let ITEMS = [];
   let markers = {};
@@ -164,9 +133,12 @@
   // helper create divIcon with type-specific marker images and color overlay
   function createIconForItem(item){
     const markerType = item.type || 'city';
-    const markerFile = `assets/markers/${markerType}.png`;
+    // use assets/MARKER_PNG which contains the project's marker images
+    const markerFile = `assets/MARKER_PNG/${markerType}.png`;
+    // fallback to a generic marker if specific type image missing
+    const fallbackFile = 'assets/MARKER_PNG/marker.png';
     const color = item.color || selectedColor;
-    const html = `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;top:0;left:0;width:28px;height:28px;background:${color};border-radius:50%;opacity:0.6;"></div><img src="${markerFile}" alt="${markerType}" style="width:100%;height:100%;position:absolute;top:0;left:0;z-index:1;filter:drop-shadow(0 0 2px rgba(0,0,0,0.5));"/></div>`;
+    const html = `<div style="position:relative;width:28px;height:28px;"><div style="position:absolute;top:0;left:0;width:28px;height:28px;background:${color};border-radius:50%;opacity:0.6;"></div><img src="${markerFile}" onerror="this.src='${fallbackFile}'" alt="${markerType}" style="width:100%;height:100%;position:absolute;top:0;left:0;z-index:1;filter:drop-shadow(0 0 2px rgba(0,0,0,0.5));"/></div>`;
     return L.divIcon({
       className: '',
       html,
@@ -215,6 +187,77 @@
       });
       ITEMS.forEach(it => addMarkerToMap(it));
       applyFilters();
+
+      // attach popup handlers for Edit/Delete using popupopen event
+      map.on('popupopen', e => {
+        try {
+          const popupNode = e.popup._contentNode;
+          if (!popupNode) return;
+          const delBtn = popupNode.querySelector('.popup-delete');
+          const editBtn = popupNode.querySelector('.popup-edit');
+          const id = popupNode.querySelector('[data-id]')?.dataset.id;
+
+          if (delBtn && id) {
+            delBtn.onclick = () => {
+              if (!currentUser) { alert('Please login to delete markers'); return; }
+              if (!confirm('Delete this marker?')) return;
+              if (typeof deleteMarker !== 'function') {
+                alert('deleteMarker not available');
+                return;
+              }
+              const res = deleteMarker(id, currentUser.id);
+              if (res && res.success) {
+                // remove from ITEMS and map
+                const idx = ITEMS.findIndex(x => x.id === id);
+                if (idx > -1) ITEMS.splice(idx, 1);
+                if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+                map.closePopup();
+              } else {
+                alert('Delete failed: ' + (res ? res.message : 'unknown'));
+              }
+            };
+          }
+
+          if (editBtn && id) {
+            editBtn.onclick = () => {
+              if (!currentUser) { alert('Please login to edit markers'); return; }
+              const item = ITEMS.find(x => x.id === id);
+              if (!item) return;
+              const formHtml = `
+                <div>
+                  <input id="edit-name-${id}" value="${escapeHtml(item.name)}" style="width:100%;margin-bottom:6px;padding:6px;background:#0f172a;border:1px solid #475569;color:#fff;border-radius:4px;" />
+                  <input id="edit-desc-${id}" value="${escapeHtml(item.desc)}" style="width:100%;margin-bottom:6px;padding:6px;background:#0f172a;border:1px solid #475569;color:#fff;border-radius:4px;" />
+                  <div style="display:flex;gap:8px;">
+                    <button id="save-${id}" style="background:#10b981;color:#fff;border:0;padding:6px 10px;border-radius:4px;cursor:pointer;">Save</button>
+                    <button id="cancel-${id}" style="background:#64748b;color:#fff;border:0;padding:6px 10px;border-radius:4px;cursor:pointer;">Cancel</button>
+                  </div>
+                </div>`;
+
+              const marker = markers[id];
+              if (!marker) return;
+              marker.setPopupContent(formHtml);
+              // after content is set, get the node
+              const newNode = marker.getPopup()._contentNode;
+              newNode.querySelector('#save-' + id).onclick = () => {
+                const newName = newNode.querySelector('#edit-name-' + id).value;
+                const newDesc = newNode.querySelector('#edit-desc-' + id).value;
+                if (typeof updateMarker !== 'function') { alert('updateMarker not available'); marker.setPopupContent('Error'); return; }
+                const r = updateMarker(id, { name: newName, description: newDesc }, currentUser.id);
+                if (r && r.success) {
+                  item.name = newName; item.desc = newDesc;
+                  marker.setPopupContent(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}<br><small>${item.type}</small><br><small>(${item.x}, ${item.y})</small>`);
+                } else {
+                  alert('Update failed: ' + (r ? r.message : 'unknown'));
+                  marker.setPopupContent(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}</b>`);
+                }
+              };
+              newNode.querySelector('#cancel-' + id).onclick = () => {
+                const marker = markers[id]; if (marker) marker.setPopupContent(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}<br><small>${item.type}</small><br><small>(${item.x}, ${item.y})</small>`);
+              };
+            };
+          }
+        } catch (e) { console.warn('popup handler error', e); }
+      });
     } catch(e) {
       console.warn('Failed to load markers:', e);
     }
@@ -280,12 +323,35 @@
       draggable: true
     }).addTo(map);
 
-    m.bindPopup(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}<br><small>${item.type}</small><br><small>(${item.x}, ${item.y})</small>`);
+    function getPopupHtml(it){
+      return `<div class="popup-content"><b>${escapeHtml(it.name)}</b><br>${escapeHtml(it.desc)}<br><small>${it.type}</small><br><small>(${it.x}, ${it.y})</small>
+        <div style="margin-top:6px;display:flex;gap:6px;">
+          <button class="popup-edit" data-id="${it.id}" style="background:#3b82f6;color:#fff;border:0;padding:4px 8px;border-radius:4px;cursor:pointer;">Edit</button>
+          <button class="popup-delete" data-id="${it.id}" style="background:#ef4444;color:#fff;border:0;padding:4px 8px;border-radius:4px;cursor:pointer;">Delete</button>
+        </div>
+      </div>`;
+    }
+
+    m.bindPopup(getPopupHtml(item));
 
     m.on('dragend', ev => {
       const p = ev.target.getLatLng();
-      item.x = Math.round(p.lng); item.y = Math.round(p.lat);
-      m.setPopupContent(`<b>${escapeHtml(item.name)}</b><br>${escapeHtml(item.desc)}<br><small>${item.type}</small><br><small>(${item.x}, ${item.y})</small>`);
+      const newX = Math.round(p.lng), newY = Math.round(p.lat);
+      // try to persist via updateMarker if available
+      if (typeof updateMarker === 'function' && currentUser) {
+        const res = updateMarker(item.id, { x: newX, y: newY }, currentUser.id);
+        if (res && res.success) {
+          item.x = newX; item.y = newY;
+          m.setPopupContent(getPopupHtml(item));
+        } else {
+          alert('Unable to move marker: ' + (res ? res.message : 'Permission denied'));
+          m.setLatLng([item.y, item.x]); // revert
+        }
+      } else {
+        // fallback: update local state
+        item.x = newX; item.y = newY;
+        m.setPopupContent(getPopupHtml(item));
+      }
     });
 
     markers[item.id] = m;
@@ -456,15 +522,30 @@
 
   // Profile / Character DOM
   const regUsernameInput = document.getElementById('regUsername');
-  const profileUsernameInput = document.getElementById('profileUsername');
-  const profileNicknameInput = document.getElementById('profileNickname');
-  const updateProfileBtn = document.getElementById('updateProfileBtn');
-  const createCharBtn = document.getElementById('createCharBtn');
-  const charNameInput = document.getElementById('charName');
-  const charClassInput = document.getElementById('charClass');
-  const charXInput = document.getElementById('charX');
-  const charYInput = document.getElementById('charY');
-  const charactersListEl = document.getElementById('charactersList');
+
+  // Helper to normalize error/message fields from different DB implementations
+  function getResultMessage(res) {
+    if (!res) return 'Unknown error';
+    if (typeof res === 'string') return res;
+    return res.message || res.error || (res.data && (res.data.message || res.data.error)) || 'Unknown error';
+  }
+
+  // restore current user from localStorage if present
+  (function restoreSession(){
+    try {
+      const s = localStorage.getItem('dnd-current-user');
+      if (!s) return;
+      const u = JSON.parse(s);
+      if (u && u.id) {
+        currentUser = u;
+        showUserInfo();
+        if (openProfileBtn) {
+          openProfileBtn.style.display = 'block';
+          openProfileBtn.onclick = () => window.open('profile.html', '_blank');
+        }
+      }
+    } catch(e) { console.warn('restore session failed', e); }
+  })();
 
   function showAuthForm() {
     document.getElementById('authForm').style.display = 'block';
@@ -476,8 +557,6 @@
     document.getElementById('userInfo').style.display = 'block';
     document.getElementById('currentUser').textContent = `${currentUser.username} (${currentUser.email})`;
     document.getElementById('userType').textContent = `Type: ${currentUser.type}`;
-    profileUsernameInput.value = currentUser.profile?.nickname || currentUser.username;
-    profileNicknameInput.value = currentUser.profile?.bio || '';
   }
 
   // Login handler (defensive)
@@ -494,18 +573,19 @@
         return;
       }
       const result = (typeof loginUser === 'function') ? loginUser(email, pass) : { success: false, message: 'loginUser not available' };
-      if (result.success) {
+      if (result && result.success) {
         currentUser = result.user;
         if (emailEl) emailEl.value = '';
         if (passEl) passEl.value = '';
+        // Store user in localStorage for profile page
+        try { localStorage.setItem('dnd-current-user', JSON.stringify(currentUser)); } catch(e){}
         showUserInfo();
-        renderProfileAndCharacters();
         if (openProfileBtn) {
           openProfileBtn.style.display = 'block';
           openProfileBtn.onclick = () => window.open('profile.html', '_blank');
         }
       } else {
-        alert('Login failed: ' + result.message);
+        alert('Login failed: ' + getResultMessage(result));
       }
     });
   })();
@@ -532,23 +612,25 @@
         return;
       }
       const result = (typeof registerUser === 'function') ? registerUser(email, username, pass, confirm) : { success: false, message: 'registerUser not available' };
-      if (result.success) {
+      if (result && result.success) {
         if (emailEl) emailEl.value = '';
         if (usernameEl) usernameEl.value = '';
         if (passEl) passEl.value = '';
         if (confirmEl) confirmEl.value = '';
         const loginResult = (typeof loginUser === 'function') ? loginUser(email, pass) : { success: false };
-        if (loginResult.success) {
+        if (loginResult && loginResult.success) {
           currentUser = loginResult.user;
+          try { localStorage.setItem('dnd-current-user', JSON.stringify(currentUser)); } catch(e){}
           showUserInfo();
-          renderProfileAndCharacters();
           if (openProfileBtn) {
             openProfileBtn.style.display = 'block';
             openProfileBtn.onclick = () => window.open('profile.html', '_blank');
           }
+        } else {
+          alert('Auto-login failed: ' + getResultMessage(loginResult));
         }
       } else {
-        alert('Registration failed: ' + result.message);
+        alert('Registration failed: ' + getResultMessage(result));
       }
     });
   })();
@@ -562,6 +644,8 @@
         try { logoutUser(currentUser.id); } catch(e){}
       }
       currentUser = null;
+      // Clear user from localStorage
+      localStorage.removeItem('dnd-current-user');
       showAuthForm();
       alert('Logged out');
       if (openProfileBtn) openProfileBtn.style.display = 'none';
@@ -572,104 +656,13 @@
 
   // Update profile (defensive)
   (function(){
-    if (!updateProfileBtn) return;
-    updateProfileBtn.addEventListener('click', () => {
-      if (!currentUser) return alert('Not logged in');
-      const nickname = profileNicknameInput ? profileNicknameInput.value.trim() : '';
-      const res = (typeof updateProfile === 'function') ? updateProfile(currentUser.id, { nickname, bio: nickname }) : { success: false, message: 'updateProfile not available' };
-      if (res.success) {
-        currentUser = res.user;
-        alert('Profile updated successfully');
-      } else alert('Profile update failed: ' + res.message);
-    });
+    // Profile update moved to profile.html
   })();
 
   // Create character (defensive)
   (function(){
-    if (!createCharBtn) return;
-    createCharBtn.addEventListener('click', () => {
-      if (!currentUser) return alert('Please login to create characters');
-      const name = charNameInput ? charNameInput.value.trim() : '';
-      const cls = charClassInput ? charClassInput.value.trim() : '';
-      const x = charXInput ? Number(charXInput.value) || 100 : 100;
-      const y = charYInput ? Number(charYInput.value) || 100 : 100;
-      if (!name || !cls) return alert('Please enter character name and class');
-      const res = (typeof createCharacter === 'function') ? createCharacter(currentUser.id, { name, className: cls, level: 1, x, y }) : { success: false, message: 'createCharacter not available' };
-      if (res.success) {
-        if (charNameInput) charNameInput.value = '';
-        if (charClassInput) charClassInput.value = '';
-        if (charXInput) charXInput.value = '';
-        if (charYInput) charYInput.value = '';
-        if (typeof updateCharacterPosition === 'function') updateCharacterPosition(res.character.id, x, y, name, currentUser.username);
-        renderCharacters();
-        addCharacterMarker(res.character);
-        alert('Character created successfully!');
-      } else alert('Create character failed: ' + res.message);
-    });
+    // Character creation moved to profile.html
   })();
-
-  // Render profile fields and characters list
-  function renderProfileAndCharacters(){
-    if (!currentUser) return;
-    profileUsernameInput.value = currentUser.profile?.nickname || currentUser.username;
-    profileNicknameInput.value = currentUser.profile?.bio || '';
-    renderCharacters();
-  }
-
-  function renderCharacters(){
-    if (!currentUser) return;
-    const chars = getCharactersByUser(currentUser.id);
-    if (!chars || chars.length === 0) {
-      charactersListEl.innerHTML = '<p style="font-size:12px;color:rgba(255,255,255,0.6);">No characters yet</p>';
-      return;
-    }
-    charactersListEl.innerHTML = chars.map(c => `
-      <div style="padding:6px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px;">
-        <div><strong>${escapeHtml(c.name)}</strong> <small style="color:rgba(255,255,255,0.6);">${escapeHtml(c.className)} Lvl ${c.level}</small></div>
-        <div style="font-size:12px;margin-top:6px;">Pos: (${Math.round(c.x)}, ${Math.round(c.y)})</div>
-        <div style="display:flex;gap:6px;margin-top:6px;">
-          <button onclick="window.teleportChar('${c.id}')" style="flex:1;background:#60a5fa;padding:6px 8px;font-size:12px;">Teleport</button>
-          <button onclick="window.deleteChar('${c.id}')" style="flex:1;background:#ef4444;padding:6px 8px;font-size:12px;">Delete</button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  // window helpers for click handlers (global)
-  window.teleportChar = (charId) => {
-    if (!currentUser) return alert('Login first');
-    const x = prompt('Enter target X coordinate:');
-    const y = prompt('Enter target Y coordinate:');
-    if (x === null || y === null) return;
-    const tx = Number(x); 
-    const ty = Number(y);
-    if (isNaN(tx) || isNaN(ty)) return alert('Invalid coordinates');
-    const res = moveCharacter(charId, tx, ty, currentUser.id);
-    if (res.success) {
-      updateCharacterPosition(charId, tx, ty, res.character.name, currentUser.username);
-      renderCharacters();
-      // Update marker position on map
-      if (characterMarkers[charId]) {
-        map.removeLayer(characterMarkers[charId]);
-        delete characterMarkers[charId];
-      }
-      addCharacterMarker(res.character);
-    } else alert('Teleport failed: ' + res.message);
-  };
-
-  window.deleteChar = (charId) => {
-    if (!confirm('Delete this character?')) return;
-    const res = deleteCharacter(charId, currentUser.id);
-    if (res.success) {
-      removeCharacterPosition(charId);
-      if (characterMarkers[charId]) {
-        map.removeLayer(characterMarkers[charId]);
-        delete characterMarkers[charId];
-      }
-      renderCharacters();
-      alert('Character deleted');
-    } else alert('Delete failed: ' + res.message);
-  };
 
   // Add or update marker for a character
   function addCharacterMarker(ch){

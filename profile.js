@@ -14,6 +14,7 @@
 
 	const els = {
 		avatar: document.getElementById('avatar'),
+		avatarInput: document.getElementById('avatarInput'),
 		displayName: document.getElementById('displayName'),
 		displaySubtitle: document.getElementById('displaySubtitle'),
 		nickname: document.getElementById('nickname'),
@@ -28,6 +29,8 @@
 		newCharClass: document.getElementById('newCharClass'),
 		newCharLevel: document.getElementById('newCharLevel'),
 		newCharColor: document.getElementById('newCharColor'),
+		newCharImage: document.getElementById('newCharImage'),
+		charImagePreview: document.getElementById('charImagePreview'),
 		cancelCreateChar: document.getElementById('cancelCreateChar'),
 		submitCreateChar: document.getElementById('submitCreateChar'),
 		charactersList: document.getElementById('charactersList')
@@ -81,6 +84,8 @@
 		els.displaySubtitle.textContent = currentUser.type || 'Player';
 		els.nickname.value = currentUser.profile && currentUser.profile.nickname ? currentUser.profile.nickname : currentUser.username;
 		els.email.value = currentUser.email || '';
+		// Keep password field empty for security - user will need to re-enter if they want to change it
+		els.password.value = '';
 		const avatarUrl = currentUser.profile && currentUser.profile.avatar;
 		if (avatarUrl) els.avatar.style.backgroundImage = `url('${avatarUrl}')`;
 	}
@@ -107,7 +112,14 @@
 			color.style.background = c.color || '#ef4444';
 
 			const info = document.createElement('div');
-			info.innerHTML = `<div class="font-semibold">${escapeHtml(c.name)}</div><div class="text-sm text-gray-400">Level: ${c.level} • ${escapeHtml(c.className)}</div>`;
+			
+			// Add character image if available
+			let imgHtml = '';
+			if (c.image) {
+				imgHtml = `<div class="char-image" style="background-image: url('${c.image}');"></div>`;
+			}
+			
+			info.innerHTML = `${imgHtml}<div><div class="font-semibold text-gray-100">${escapeHtml(c.name)}</div><div class="text-sm text-gray-400">Level: ${c.level} • ${escapeHtml(c.className)}</div></div>`;
 
 			meta.appendChild(color);
 			meta.appendChild(info);
@@ -155,6 +167,59 @@
 	}
 
 	function bind() {
+		// Avatar photo upload
+		els.avatar.addEventListener('click', () => {
+			els.avatarInput.click();
+		});
+
+		els.avatarInput.addEventListener('change', (e) => {
+			const file = e.target.files[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				const imageData = event.target.result;
+				els.avatar.style.backgroundImage = `url('${imageData}')`;
+				
+				// Save to profile with ProfileImageManager
+				if (currentUser) {
+					// Profil resmini yönetici ile kaydet
+					const imageInfo = window.ProfileImageManager.saveProfileImage(currentUser.id, imageData);
+					
+					if (imageInfo) {
+						const updates = {
+							avatar: imageData,
+							avatarPath: imageInfo.filePath,
+							avatarFileName: imageInfo.fileName
+						};
+						
+						const res = safe('updateProfile', currentUser.id, updates);
+						if (res && res.success) {
+							currentUser = res.user;
+							alert('✓ Profil fotoğrafı başarıyla kaydedildi!');
+						}
+					}
+				}
+			};
+			reader.readAsDataURL(file);
+		});
+
+		// Character image preview
+		els.newCharImage.addEventListener('change', (e) => {
+			const file = e.target.files[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				const imageData = event.target.result;
+				els.charImagePreview.style.backgroundImage = `url('${imageData}')`;
+				els.charImagePreview.classList.remove('hidden');
+				// Store the image data in a data attribute
+				els.newCharImage.dataset.imageData = imageData;
+			};
+			reader.readAsDataURL(file);
+		});
+
 		els.togglePassword.addEventListener('click', () => {
 			if (els.password.type === 'password') {
 				els.password.type = 'text';
@@ -191,7 +256,11 @@
 			}
 			try { safe('saveUserDatabase'); } catch (e) { /* ok */ }
 			safe('logoutUser', currentUser.id);
-			alert('Logged out (session cleared).');
+			// Clear the stored user from localStorage
+			localStorage.removeItem('dnd-current-user');
+			alert('Logged out successfully. You must log in again.');
+			// Redirect to map.html
+			window.location.href = 'map.html';
 		});
 
 		window.addEventListener('beforeunload', () => {
@@ -218,13 +287,30 @@
 		const className = els.newCharClass.value.trim();
 		const level = parseInt(els.newCharLevel.value, 10) || 1;
 		const color = els.newCharColor.value || '#ef4444';
+		const imageData = els.newCharImage.dataset.imageData || null;
+
 		if (!name || !className) return alert('Please enter name and class');
-		const result = safe('createCharacter', currentUser.id, { name, className, level, color });
+
+		const charData = {
+			name,
+			className,
+			level,
+			color,
+			image: imageData
+		};
+
+		const result = safe('createCharacter', currentUser.id, charData);
 		if (result && result.success) {
 			showCreateModal(false);
 			els.newCharName.value = '';
 			els.newCharClass.value = '';
 			els.newCharLevel.value = '1';
+			els.newCharColor.value = '#ef4444';
+			els.newCharImage.value = '';
+			els.newCharImage.dataset.imageData = '';
+			els.charImagePreview.classList.add('hidden');
+			els.charImagePreview.style.backgroundImage = '';
+
 			setTimeout(() => {
 				setActiveCharacterId(result.character.id);
 			}, 50);
@@ -235,10 +321,34 @@
 	}
 
 	function init() {
-		currentUser = findOrCreateDemoUser();
+		// First try to load currentUser from localStorage (set by map.html on login)
+		const storedUser = localStorage.getItem('dnd-current-user');
+		if (storedUser) {
+			try {
+				currentUser = JSON.parse(storedUser);
+			} catch (e) {
+				console.warn('Failed to parse stored user:', e);
+				currentUser = findOrCreateDemoUser();
+			}
+		} else {
+			currentUser = findOrCreateDemoUser();
+		}
+		
 		if (!currentUser) {
 			currentUser = { id: 'guest-1', username: 'guest', profile: { nickname: 'Guest' } };
 		}
+
+		// Profil resmini localStorage'dan yükle
+		if (currentUser && window.ProfileImageManager) {
+			const savedImage = window.ProfileImageManager.loadProfileImage(currentUser.id);
+			if (savedImage && savedImage.imageData) {
+				// Eğer profil resmini veri tabanında tutmuyor ise, localStorage'dan yükle
+				if (!currentUser.profile.avatar && savedImage.imageData) {
+					currentUser.profile.avatar = savedImage.imageData;
+				}
+			}
+		}
+
 		renderProfile();
 		renderCharacters();
 		bind();
