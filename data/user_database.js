@@ -8,12 +8,12 @@ function registerUser(email, username, password, passwordConfirm) {
     if (password !== passwordConfirm) {
         return { success: false, error: 'Passwords do not match' };
     }
-    
+
     const existingUser = window.USER_DATABASE.users.find(u => u.email === email || u.username === username);
     if (existingUser) {
         return { success: false, error: 'User already exists' };
     }
-    
+
     const newUser = {
         id: `user_${window.USER_DATABASE.nextUserId++}`,
         email: email,
@@ -27,10 +27,10 @@ function registerUser(email, username, password, passwordConfirm) {
         activeCharacterId: null,
         createdAt: new Date().toISOString()
     };
-    
+
     window.USER_DATABASE.users.push(newUser);
     saveUserDatabase();
-    
+
     return { success: true, user: newUser };
 }
 
@@ -39,7 +39,7 @@ function loginUser(email, password) {
     if (!user) {
         return { success: false, error: 'Invalid email or password' };
     }
-    
+
     localStorage.setItem('dnd-current-user', JSON.stringify(user));
     return { success: true, user: user };
 }
@@ -54,35 +54,39 @@ function updateProfile(userId, updates) {
     if (!user) {
         return { success: false, error: 'User not found' };
     }
-    
+
     if (!user.profile) {
         user.profile = {};
     }
-    
+
     if (updates.nickname) {
         user.profile.nickname = updates.nickname;
     }
-    
+
     if (updates.avatar) {
         user.profile.avatar = updates.avatar;
     }
-    
+
     if (updates.avatarPath) {
         user.profile.avatarPath = updates.avatarPath;
     }
-    
+
     if (updates.avatarFileName) {
         user.profile.avatarFileName = updates.avatarFileName;
     }
-    
+
     if (updates.email) {
         user.email = updates.email;
     }
-    
+
     if (updates.password) {
         user.password = updates.password;
     }
-    
+
+    if (updates.activeCharacterId !== undefined) {
+        user.activeCharacterId = updates.activeCharacterId;
+    }
+
     saveUserDatabase();
     return { success: true, user: user };
 }

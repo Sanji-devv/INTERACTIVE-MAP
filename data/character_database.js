@@ -6,9 +6,10 @@ window.CHARACTER_DATABASE = {
 
 function createCharacter(userId, charData) {
     if (!userId || !charData || !charData.name || !charData.className) {
+        console.error('createCharacter: Invalid data', { userId, charData });
         return { success: false, error: 'Invalid character data' };
     }
-    
+
     const newChar = {
         id: `char_${window.CHARACTER_DATABASE.nextCharacterId++}`,
         userId: userId,
@@ -19,11 +20,17 @@ function createCharacter(userId, charData) {
         image: charData.image || null,
         createdAt: new Date().toISOString()
     };
-    
+
     window.CHARACTER_DATABASE.characters.push(newChar);
-    saveCharacterDatabase();
-    
-    return { success: true, character: newChar };
+    const saved = saveCharacterDatabase();
+
+    if (saved) {
+        console.log('Character created and saved:', newChar);
+        return { success: true, character: newChar };
+    } else {
+        console.error('Failed to save character database after creation');
+        return { success: false, error: 'Failed to save character' };
+    }
 }
 
 function getCharactersByUser(userId) {
@@ -39,13 +46,13 @@ function updateCharacter(characterId, updates) {
     if (!char) {
         return { success: false, error: 'Character not found' };
     }
-    
+
     if (updates.name) char.name = updates.name;
     if (updates.className) char.className = updates.className;
     if (updates.level) char.level = updates.level;
     if (updates.color) char.color = updates.color;
     if (updates.image) char.image = updates.image;
-    
+
     saveCharacterDatabase();
     return { success: true, character: char };
 }
@@ -55,7 +62,7 @@ function deleteCharacter(characterId, userId) {
     if (index === -1) {
         return { success: false, error: 'Character not found' };
     }
-    
+
     const deleted = window.CHARACTER_DATABASE.characters.splice(index, 1);
     saveCharacterDatabase();
     return { success: true, character: deleted[0] };
@@ -64,6 +71,7 @@ function deleteCharacter(characterId, userId) {
 function saveCharacterDatabase() {
     try {
         localStorage.setItem('dnd-character-database', JSON.stringify(window.CHARACTER_DATABASE));
+        console.log('Character database saved to localStorage');
         return true;
     } catch (e) {
         console.error('Failed to save character database:', e);
@@ -77,7 +85,10 @@ function loadCharacterDatabase() {
         if (stored) {
             const data = JSON.parse(stored);
             window.CHARACTER_DATABASE = data;
+            console.log('Character database loaded from localStorage', data);
             return true;
+        } else {
+            console.log('No character database found in localStorage, using default');
         }
     } catch (e) {
         console.error('Failed to load character database:', e);

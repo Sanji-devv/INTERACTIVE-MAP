@@ -28,7 +28,6 @@
 		newCharName: document.getElementById('newCharName'),
 		newCharClass: document.getElementById('newCharClass'),
 		newCharLevel: document.getElementById('newCharLevel'),
-		newCharColor: document.getElementById('newCharColor'),
 		newCharImage: document.getElementById('newCharImage'),
 		charImagePreview: document.getElementById('charImagePreview'),
 		cancelCreateChar: document.getElementById('cancelCreateChar'),
@@ -72,7 +71,11 @@
 		localStorage.setItem(LS_ACTIVE_KEY(currentUser.id), charId);
 		if (typeof window.updateProfile === 'function') {
 			try {
-				updateProfile(currentUser.id, { activeCharacterId: charId });
+				const res = updateProfile(currentUser.id, { activeCharacterId: charId });
+				if (res && res.success) {
+					currentUser = res.user;
+					localStorage.setItem('dnd-current-user', JSON.stringify(currentUser));
+				}
 			} catch (e) { /* ignore */ }
 		}
 		renderCharacters();
@@ -91,8 +94,14 @@
 	}
 
 	function renderCharacters() {
-		if (!currentUser) return;
+		if (!currentUser) {
+			console.warn('renderCharacters: No current user');
+			return;
+		}
+		console.log('Rendering characters for user:', currentUser.id);
 		const chars = safe('getCharactersByUser', currentUser.id) || [];
+		console.log('Found characters:', chars);
+
 		const activeId = getActiveCharacterId();
 		els.charactersList.innerHTML = '';
 		if (chars.length === 0) {
@@ -107,21 +116,19 @@
 			const meta = document.createElement('div');
 			meta.className = 'char-meta';
 
-			const color = document.createElement('div');
-			color.className = 'char-color';
-			color.style.background = c.color || '#ef4444';
+
 
 			const info = document.createElement('div');
-			
+
 			// Add character image if available
 			let imgHtml = '';
 			if (c.image) {
 				imgHtml = `<div class="char-image" style="background-image: url('${c.image}');"></div>`;
 			}
-			
+
 			info.innerHTML = `${imgHtml}<div><div class="font-semibold text-gray-100">${escapeHtml(c.name)}</div><div class="text-sm text-gray-400">Level: ${c.level} • ${escapeHtml(c.className)}</div></div>`;
 
-			meta.appendChild(color);
+
 			meta.appendChild(info);
 
 			const actions = document.createElement('div');
@@ -163,7 +170,43 @@
 
 	function escapeHtml(str) {
 		if (!str) return '';
-		return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+		return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+	}
+
+	// Utility to resize images
+	function resizeImage(file, maxWidth, maxHeight, callback) {
+		const reader = new FileReader();
+		reader.onload = (event) => {
+			const img = new Image();
+			img.onload = () => {
+				const canvas = document.createElement('canvas');
+				let width = img.width;
+				let height = img.height;
+
+				if (width > height) {
+					if (width > maxWidth) {
+						height *= maxWidth / width;
+						width = maxWidth;
+					}
+				} else {
+					if (height > maxHeight) {
+						width *= maxHeight / height;
+						height = maxHeight;
+					}
+				}
+
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0, width, height);
+
+				// Compress to JPEG with 0.7 quality
+				const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+				callback(dataUrl);
+			};
+			img.src = event.target.result;
+		};
+		reader.readAsDataURL(file);
 	}
 
 	function bind() {
@@ -176,32 +219,37 @@
 			const file = e.target.files[0];
 			if (!file) return;
 
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				const imageData = event.target.result;
+			// Resize to max 300x300 for avatar
+			resizeImage(file, 300, 300, (imageData) => {
 				els.avatar.style.backgroundImage = `url('${imageData}')`;
-				
+
 				// Save to profile with ProfileImageManager
 				if (currentUser) {
-					// Profil resmini yönetici ile kaydet
-					const imageInfo = window.ProfileImageManager.saveProfileImage(currentUser.id, imageData);
-					
-					if (imageInfo) {
-						const updates = {
-							avatar: imageData,
-							avatarPath: imageInfo.filePath,
-							avatarFileName: imageInfo.fileName
-						};
-						
-						const res = safe('updateProfile', currentUser.id, updates);
-						if (res && res.success) {
-							currentUser = res.user;
-							alert('✓ Profil fotoğrafı başarıyla kaydedildi!');
+					try {
+						// Profil resmini yönetici ile kaydet
+						const imageInfo = window.ProfileImageManager.saveProfileImage(currentUser.id, imageData);
+
+						if (imageInfo) {
+							const updates = {
+								avatar: imageData,
+								avatarPath: imageInfo.filePath,
+								avatarFileName: imageInfo.fileName
+							};
+
+							const res = safe('updateProfile', currentUser.id, updates);
+							if (res && res.success) {
+								currentUser = res.user;
+								// Update local storage to persist changes
+								localStorage.setItem('dnd-current-user', JSON.stringify(currentUser));
+								alert('✓ Profil fotoğrafı başarıyla kaydedildi!');
+							}
 						}
+					} catch (err) {
+						console.error('Storage full?', err);
+						alert('Resim çok büyük, kaydedilemedi. Lütfen daha küçük bir resim deneyin.');
 					}
 				}
-			};
-			reader.readAsDataURL(file);
+			});
 		});
 
 		// Character image preview
@@ -209,15 +257,13 @@
 			const file = e.target.files[0];
 			if (!file) return;
 
-			const reader = new FileReader();
-			reader.onload = (event) => {
-				const imageData = event.target.result;
+			// Resize to max 500x500 for character image
+			resizeImage(file, 500, 500, (imageData) => {
 				els.charImagePreview.style.backgroundImage = `url('${imageData}')`;
 				els.charImagePreview.classList.remove('hidden');
 				// Store the image data in a data attribute
 				els.newCharImage.dataset.imageData = imageData;
-			};
-			reader.readAsDataURL(file);
+			});
 		});
 
 		els.togglePassword.addEventListener('click', () => {
@@ -231,15 +277,34 @@
 		});
 
 		els.saveProfileBtn.addEventListener('click', () => {
-			if (!currentUser) return alert('No user');
-			const updates = { nickname: els.nickname.value };
+			if (!currentUser) return alert('No user logged in.');
+
+			const updates = {};
+			const nickname = els.nickname.value.trim();
+			const email = els.email.value.trim();
+			const password = els.password.value;
+
+			if (nickname) updates.nickname = nickname;
+			if (email) updates.email = email;
+			if (password) updates.password = password;
+
+			// Always try to update, even if just to confirm current state
 			const res = safe('updateProfile', currentUser.id, updates);
+
 			if (res && res.success) {
 				currentUser = res.user;
+				// CRITICAL: Update local storage to persist changes across reloads
+				localStorage.setItem('dnd-current-user', JSON.stringify(currentUser));
+
+				// Update display
 				renderProfile();
-				alert('Profile saved');
+
+				// Clear password field for security
+				els.password.value = '';
+
+				alert('✓ Profile saved successfully!');
 			} else {
-				alert('Profile saved locally');
+				alert('❌ Failed to save profile: ' + (res ? res.error : 'Unknown error'));
 			}
 		});
 
@@ -248,25 +313,22 @@
 		els.submitCreateChar.addEventListener('click', createCharacterFromForm);
 
 		els.logoutBtn.addEventListener('click', () => {
-			const active = getActiveCharacterId();
-			if (!active) {
-				alert('Please select an active character before logging out.');
-				els.charactersList.scrollIntoView({ behavior: 'smooth' });
-				return;
+			if (confirm('Are you sure you want to logout?')) {
+				try { safe('saveUserDatabase'); } catch (e) { /* ok */ }
+				if (currentUser) {
+					safe('logoutUser', currentUser.id);
+				}
+				// Clear the stored user from localStorage
+				localStorage.removeItem('dnd-current-user');
+				// Redirect to map.html
+				window.location.href = 'map.html';
 			}
-			try { safe('saveUserDatabase'); } catch (e) { /* ok */ }
-			safe('logoutUser', currentUser.id);
-			// Clear the stored user from localStorage
-			localStorage.removeItem('dnd-current-user');
-			alert('Logged out successfully. You must log in again.');
-			// Redirect to map.html
-			window.location.href = 'map.html';
 		});
 
 		window.addEventListener('beforeunload', () => {
 			if (!currentUser) return;
-			try { safe('updateProfile', currentUser.id, { nickname: els.nickname.value }); } catch (e) {}
-			try { safe('saveUserDatabase'); } catch (e) {}
+			try { safe('updateProfile', currentUser.id, { nickname: els.nickname.value }); } catch (e) { }
+			try { safe('saveUserDatabase'); } catch (e) { }
 		});
 	}
 
@@ -286,7 +348,6 @@
 		const name = els.newCharName.value.trim();
 		const className = els.newCharClass.value.trim();
 		const level = parseInt(els.newCharLevel.value, 10) || 1;
-		const color = els.newCharColor.value || '#ef4444';
 		const imageData = els.newCharImage.dataset.imageData || null;
 
 		if (!name || !className) return alert('Please enter name and class');
@@ -295,28 +356,33 @@
 			name,
 			className,
 			level,
-			color,
 			image: imageData
 		};
 
+		console.log('Attempting to create character:', charData);
 		const result = safe('createCharacter', currentUser.id, charData);
+
 		if (result && result.success) {
+			console.log('Character created successfully:', result.character);
 			showCreateModal(false);
 			els.newCharName.value = '';
 			els.newCharClass.value = '';
 			els.newCharLevel.value = '1';
-			els.newCharColor.value = '#ef4444';
 			els.newCharImage.value = '';
 			els.newCharImage.dataset.imageData = '';
 			els.charImagePreview.classList.add('hidden');
 			els.charImagePreview.style.backgroundImage = '';
 
+			// Ensure we update the active character immediately
 			setTimeout(() => {
 				setActiveCharacterId(result.character.id);
 			}, 50);
+
+			// Force re-render
 			renderCharacters();
 		} else {
-			alert('Failed to create character.');
+			console.error('Failed to create character:', result ? result.error : 'Unknown error');
+			alert('Failed to create character: ' + (result ? result.error : 'Unknown error'));
 		}
 	}
 
@@ -333,7 +399,7 @@
 		} else {
 			currentUser = findOrCreateDemoUser();
 		}
-		
+
 		if (!currentUser) {
 			currentUser = { id: 'guest-1', username: 'guest', profile: { nickname: 'Guest' } };
 		}
